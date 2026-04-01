@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore, useAuthStore } from '../../stores';
 import { spacing, typography, layout } from '../../constants';
@@ -11,15 +11,10 @@ export default function MyPinScreen() {
 
   const copyPin = async () => {
     try {
-      if (Platform.OS === 'web') {
-        await navigator.clipboard.writeText(pin);
-      } else {
-        const Clipboard = require('expo-clipboard');
-        await Clipboard.setStringAsync(pin);
-      }
+      await navigator.clipboard.writeText(pin);
       Alert.alert('Copied', 'PIN copied to clipboard');
     } catch {
-      Alert.alert('PIN', pin);
+      Alert.alert('Your PIN', pin);
     }
   };
 
