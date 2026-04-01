@@ -15,26 +15,27 @@ import { spacing, typography, layout, config } from '../../constants';
 import { Avatar, Button, Input } from '../../components/common';
 import { UserStatus } from '../../types';
 
-const STATUS_OPTIONS: { value: UserStatus; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { value: 'available', label: 'Available', icon: 'ellipse' },
-  { value: 'busy', label: 'Busy', icon: 'ellipse' },
-  { value: 'away', label: 'Away', icon: 'ellipse' },
+const STATUS_OPTIONS: { value: UserStatus; label: string; color: string }[] = [
+  { value: 'available', label: 'Available', color: '#4CAF50' },
+  { value: 'busy', label: 'Busy', color: '#FF9800' },
+  { value: 'away', label: 'Away', color: '#9E9E9E' },
 ];
 
 export default function EditProfileScreen() {
   const colors = useThemeStore((s) => s.colors);
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
+
   const [displayName, setDisplayName] = useState(user?.displayName || '');
+  const [email] = useState(user?.email || '');
+  const [phone, setPhone] = useState(user?.phoneNumber || '');
   const [statusMessage, setStatusMessage] = useState(user?.statusMessage || '');
   const [status, setStatus] = useState<UserStatus>(user?.status || 'available');
   const [saving, setSaving] = useState(false);
 
-  const statusColor = (s: UserStatus) =>
-    s === 'available' ? colors.online : s === 'busy' ? colors.busy : colors.away;
-
   const hasChanges =
     displayName !== (user?.displayName || '') ||
+    phone !== (user?.phoneNumber || '') ||
     statusMessage !== (user?.statusMessage || '') ||
     status !== (user?.status || 'available');
 
@@ -47,15 +48,18 @@ export default function EditProfileScreen() {
 
     setSaving(true);
     try {
-      await updateDoc(doc(db, 'users', user.uid), {
+      const updates: Record<string, any> = {
         displayName: displayName.trim(),
+        phoneNumber: phone.trim() || null,
         statusMessage: statusMessage.trim(),
         status,
         updatedAt: serverTimestamp(),
-      });
+      };
+      await updateDoc(doc(db, 'users', user.uid), updates);
       setUser({
         ...user,
         displayName: displayName.trim(),
+        phoneNumber: phone.trim() || null,
         statusMessage: statusMessage.trim(),
         status,
       });
@@ -75,14 +79,20 @@ export default function EditProfileScreen() {
       {/* Avatar */}
       <View style={styles.avatarSection}>
         <Avatar uri={user?.avatarUrl} name={displayName} size="xxl" />
-        <TouchableOpacity style={styles.changePhotoBtn}>
+        <TouchableOpacity style={styles.cameraButton}>
+          <View style={[styles.cameraBadge, { backgroundColor: colors.accentLight }]}>
+            <Ionicons name="camera" size={16} color="#FFFFFF" />
+          </View>
+        </TouchableOpacity>
+        <TouchableOpacity>
           <Text style={[styles.changePhotoText, { color: colors.accentLight }]}>
             Change Photo
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Form */}
+      {/* Personal Info */}
+      <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Personal Information</Text>
       <View style={styles.form}>
         <Input
           label="Display Name"
@@ -92,6 +102,25 @@ export default function EditProfileScreen() {
           placeholder="Your name"
         />
         <Input
+          label="Email"
+          value={email}
+          editable={false}
+          placeholder="Email address"
+          keyboardType="email-address"
+        />
+        <Input
+          label="Phone Number"
+          value={phone}
+          onChangeText={setPhone}
+          placeholder="+971 50 123 4567"
+          keyboardType="phone-pad"
+        />
+      </View>
+
+      {/* Status */}
+      <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Status</Text>
+      <View style={styles.form}>
+        <Input
           label="Status Message"
           value={statusMessage}
           onChangeText={setStatusMessage}
@@ -100,29 +129,23 @@ export default function EditProfileScreen() {
         />
       </View>
 
-      {/* Status Selector */}
-      <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Status</Text>
       <View style={[styles.statusSection, { backgroundColor: colors.surface }]}>
         {STATUS_OPTIONS.map((opt) => (
           <TouchableOpacity
             key={opt.value}
-            style={[
-              styles.statusOption,
-              { borderBottomColor: colors.borderLight },
-            ]}
+            style={[styles.statusOption, { borderBottomColor: colors.borderLight }]}
             onPress={() => setStatus(opt.value)}
             activeOpacity={0.6}
           >
-            <Ionicons name={opt.icon} size={12} color={statusColor(opt.value)} />
+            <View style={[styles.statusDot, { backgroundColor: opt.color }]} />
             <Text style={[styles.statusLabel, { color: colors.text }]}>{opt.label}</Text>
             {status === opt.value && (
-              <Ionicons name="checkmark" size={20} color={colors.accentLight} />
+              <Ionicons name="checkmark-circle" size={22} color={colors.accentLight} />
             )}
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* Save */}
       <Button
         title="Save Changes"
         onPress={handleSave}
@@ -139,25 +162,36 @@ const styles = StyleSheet.create({
   avatarSection: {
     alignItems: 'center',
     marginBottom: spacing.xxl,
+    position: 'relative',
   },
-  changePhotoBtn: {
-    marginTop: spacing.md,
+  cameraButton: {
+    position: 'absolute',
+    top: 56,
+    right: '35%',
+  },
+  cameraBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   changePhotoText: {
     fontSize: typography.fontSize.md,
     fontWeight: typography.fontWeight.semibold,
+    marginTop: spacing.sm,
+  },
+  sectionLabel: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.bold,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: spacing.md,
+    marginLeft: spacing.xs,
   },
   form: {
     gap: spacing.lg,
     marginBottom: spacing.xxl,
-  },
-  sectionLabel: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: spacing.sm,
-    marginLeft: spacing.xs,
   },
   statusSection: {
     borderRadius: layout.borderRadius.lg,
@@ -171,6 +205,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     borderBottomWidth: StyleSheet.hairlineWidth,
     gap: spacing.md,
+  },
+  statusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   statusLabel: {
     flex: 1,

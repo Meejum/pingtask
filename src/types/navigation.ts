@@ -41,4 +41,11 @@ export type SettingsStackParamList = {
   Settings: undefined;
   EditProfile: undefined;
   MyPin: undefined;
+  Security: undefined;
+  DataManagement: undefined;
+  Appearance: undefined;
+  Notifications: undefined;
+  Privacy: undefined;
+  HelpSupport: undefined;
+  About: undefined;
 };
