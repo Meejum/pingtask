@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -11,6 +10,7 @@ import { useThemeStore } from '../../stores';
 import { spacing, typography, layout } from '../../constants';
 import { Button, Input } from '../../components/common';
 import { signIn } from '../../services/authService';
+import { showAlert } from '../../utils/alert';
 
 export default function SignInScreen() {
   const colors = useThemeStore((s) => s.colors);
@@ -20,7 +20,7 @@ export default function SignInScreen() {
 
   const handleSignIn = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      showAlert('Error', 'Please fill in all fields');
       return;
     }
 
@@ -28,7 +28,7 @@ export default function SignInScreen() {
     try {
       await signIn(email.trim(), password);
     } catch (error: any) {
-      Alert.alert('Sign In Failed', error.message);
+      showAlert('Sign In Failed', error.message);
     } finally {
       setLoading(false);
     }

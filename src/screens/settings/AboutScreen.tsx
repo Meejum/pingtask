@@ -1,14 +1,15 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../stores';
 import { spacing, typography, layout } from '../../constants';
+import { showAlert } from '../../utils/alert';
 
 export default function AboutScreen() {
   const colors = useThemeStore((s) => s.colors);
 
   const openLink = (url: string) => {
-    Linking.openURL(url).catch(() => Alert.alert('Error', 'Could not open link'));
+    Linking.openURL(url).catch(() => showAlert('Error', 'Could not open link'));
   };
 
   return (
@@ -35,7 +36,7 @@ export default function AboutScreen() {
       <View style={[styles.section, { backgroundColor: colors.surface }]}>
         <TouchableOpacity
           style={[styles.item, { borderBottomColor: colors.borderLight }]}
-          onPress={() => Alert.alert('Terms of Service', 'Terms of Service will be available at launch.')}
+          onPress={() => showAlert('Terms of Service', 'Terms of Service will be available at launch.')}
           activeOpacity={0.6}
         >
           <Ionicons name="document-text-outline" size={20} color={colors.text} />
@@ -44,7 +45,7 @@ export default function AboutScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.item, { borderBottomColor: colors.borderLight }]}
-          onPress={() => Alert.alert('Privacy Policy', 'Privacy Policy will be available at launch.')}
+          onPress={() => showAlert('Privacy Policy', 'Privacy Policy will be available at launch.')}
           activeOpacity={0.6}
         >
           <Ionicons name="shield-outline" size={20} color={colors.text} />
@@ -53,7 +54,7 @@ export default function AboutScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.item, { borderBottomColor: colors.borderLight }]}
-          onPress={() => Alert.alert('Licenses', 'Open source licenses will be listed here.')}
+          onPress={() => showAlert('Licenses', 'Open source licenses will be listed here.')}
           activeOpacity={0.6}
         >
           <Ionicons name="code-slash-outline" size={20} color={colors.text} />

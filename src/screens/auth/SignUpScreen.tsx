@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -11,6 +10,7 @@ import { useThemeStore } from '../../stores';
 import { spacing, typography, layout } from '../../constants';
 import { Button, Input } from '../../components/common';
 import { signUp } from '../../services/authService';
+import { showAlert } from '../../utils/alert';
 
 export default function SignUpScreen() {
   const colors = useThemeStore((s) => s.colors);
@@ -21,15 +21,15 @@ export default function SignUpScreen() {
 
   const handleSignUp = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      showAlert('Error', 'Please fill in all fields');
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      showAlert('Error', 'Passwords do not match');
       return;
     }
     if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+      showAlert('Error', 'Password must be at least 6 characters');
       return;
     }
 
@@ -38,7 +38,7 @@ export default function SignUpScreen() {
       await signUp(email.trim(), password);
       // onAuthStateChanged will detect the new user and set needsProfile → routes to SetProfile
     } catch (error: any) {
-      Alert.alert('Sign Up Failed', error.message);
+      showAlert('Sign Up Failed', error.message);
     } finally {
       setLoading(false);
     }

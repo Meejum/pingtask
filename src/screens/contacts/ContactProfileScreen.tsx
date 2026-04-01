@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
@@ -10,6 +10,7 @@ import { useThemeStore, useAuthStore } from '../../stores';
 import { removeContact } from '../../services/contactService';
 import { spacing, typography, layout } from '../../constants';
 import { Avatar, Button, LoadingScreen } from '../../components/common';
+import { showAlert } from '../../utils/alert';
 
 type Props = {
   navigation: NativeStackNavigationProp<ContactStackParamList, 'ContactProfile'>;
@@ -32,7 +33,7 @@ export default function ContactProfileScreen({ navigation, route }: Props) {
 
   const handleRemove = () => {
     if (!currentUser?.uid || !profile) return;
-    Alert.alert(
+    showAlert(
       'Remove Contact',
       `Remove ${profile.displayName} from your contacts?`,
       [

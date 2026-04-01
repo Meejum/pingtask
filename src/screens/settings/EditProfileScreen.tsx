@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
@@ -13,6 +12,7 @@ import { db } from '../../config/firebase';
 import { useThemeStore, useAuthStore } from '../../stores';
 import { spacing, typography, layout, config } from '../../constants';
 import { Avatar, Button, Input } from '../../components/common';
+import { showAlert } from '../../utils/alert';
 import { UserStatus } from '../../types';
 
 const STATUS_OPTIONS: { value: UserStatus; label: string; color: string }[] = [
@@ -41,7 +41,7 @@ export default function EditProfileScreen() {
 
   const handleSave = async () => {
     if (!displayName.trim()) {
-      Alert.alert('Error', 'Display name cannot be empty');
+      showAlert('Error', 'Display name cannot be empty');
       return;
     }
     if (!user?.uid) return;
@@ -63,9 +63,9 @@ export default function EditProfileScreen() {
         statusMessage: statusMessage.trim(),
         status,
       });
-      Alert.alert('Saved', 'Profile updated successfully');
+      showAlert('Saved', 'Profile updated successfully');
     } catch (error: any) {
-      Alert.alert('Error', error.message);
+      showAlert('Error', error.message);
     } finally {
       setSaving(false);
     }

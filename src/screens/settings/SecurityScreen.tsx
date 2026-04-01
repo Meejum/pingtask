@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
@@ -14,6 +13,7 @@ import { auth } from '../../config/firebase';
 import { useThemeStore } from '../../stores';
 import { spacing, typography, layout } from '../../constants';
 import { Button, Input } from '../../components/common';
+import { showAlert } from '../../utils/alert';
 
 export default function SecurityScreen() {
   const colors = useThemeStore((s) => s.colors);
@@ -26,15 +26,15 @@ export default function SecurityScreen() {
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword) {
-      Alert.alert('Error', 'Please fill in all fields');
+      showAlert('Error', 'Please fill in all fields');
       return;
     }
     if (newPassword.length < 6) {
-      Alert.alert('Error', 'New password must be at least 6 characters');
+      showAlert('Error', 'New password must be at least 6 characters');
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'New passwords do not match');
+      showAlert('Error', 'New passwords do not match');
       return;
     }
 
@@ -46,16 +46,16 @@ export default function SecurityScreen() {
       const credential = EmailAuthProvider.credential(user.email, currentPassword);
       await reauthenticateWithCredential(user, credential);
       await updatePassword(user, newPassword);
-      Alert.alert('Success', 'Password updated successfully');
+      showAlert('Success', 'Password updated successfully');
       setShowPasswordForm(false);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (error: any) {
       if (error.code === 'auth/wrong-password') {
-        Alert.alert('Error', 'Current password is incorrect');
+        showAlert('Error', 'Current password is incorrect');
       } else {
-        Alert.alert('Error', error.message);
+        showAlert('Error', error.message);
       }
     } finally {
       setSaving(false);
@@ -139,7 +139,7 @@ export default function SecurityScreen() {
           <Switch
             value={twoFactorEnabled}
             onValueChange={(val) => {
-              Alert.alert('Coming Soon', '2FA will be available in a future update');
+              showAlert('Coming Soon', '2FA will be available in a future update');
             }}
             trackColor={{ true: colors.accentLight, false: colors.surfaceVariant }}
           />

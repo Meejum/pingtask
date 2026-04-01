@@ -1,42 +1,43 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore, useAuthStore } from '../../stores';
 import { spacing, typography, layout } from '../../constants';
+import { showAlert } from '../../utils/alert';
 
 export default function DataManagementScreen() {
   const colors = useThemeStore((s) => s.colors);
   const user = useAuthStore((s) => s.user);
 
   const handleExport = () => {
-    Alert.alert(
+    showAlert(
       'Export Data',
       'We will prepare a download of all your data including messages, contacts, and tasks. You will be notified when it is ready.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Request Export', onPress: () => Alert.alert('Coming Soon', 'Data export will be available in a future update') },
+        { text: 'Request Export', onPress: () => showAlert('Coming Soon', 'Data export will be available in a future update') },
       ],
     );
   };
 
   const handleDeactivate = () => {
-    Alert.alert(
+    showAlert(
       'Deactivate Account',
       'Your account will be hidden and you will be signed out. You can reactivate by signing in again.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Deactivate', style: 'destructive', onPress: () => Alert.alert('Coming Soon', 'Account deactivation will be available in a future update') },
+        { text: 'Deactivate', style: 'destructive', onPress: () => showAlert('Coming Soon', 'Account deactivation will be available in a future update') },
       ],
     );
   };
 
   const handleDelete = () => {
-    Alert.alert(
+    showAlert(
       'Delete Account',
       'This will permanently delete your account and all associated data. This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete Account', style: 'destructive', onPress: () => Alert.alert('Coming Soon', 'Account deletion will be available in a future update') },
+        { text: 'Delete Account', style: 'destructive', onPress: () => showAlert('Coming Soon', 'Account deletion will be available in a future update') },
       ],
     );
   };

@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../stores';
 import { spacing, typography, layout } from '../../constants';
+import { showAlert } from '../../utils/alert';
 
 interface HelpItemProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -53,19 +54,19 @@ export default function HelpSupportScreen() {
           icon="chatbox-outline"
           label="Contact Support"
           subtitle="Chat with our support team"
-          onPress={() => Alert.alert('Support', 'Email us at support@pingtask.app')}
+          onPress={() => showAlert('Support', 'Email us at support@pingtask.app')}
         />
         <HelpItem
           icon="bug-outline"
           label="Report a Bug"
           subtitle="Let us know what went wrong"
-          onPress={() => Alert.alert('Report Bug', 'Email bugs@pingtask.app with a description of the issue')}
+          onPress={() => showAlert('Report Bug', 'Email bugs@pingtask.app with a description of the issue')}
         />
         <HelpItem
           icon="bulb-outline"
           label="Suggest a Feature"
           subtitle="We'd love to hear your ideas"
-          onPress={() => Alert.alert('Feature Request', 'Email ideas@pingtask.app with your suggestion')}
+          onPress={() => showAlert('Feature Request', 'Email ideas@pingtask.app with your suggestion')}
         />
       </View>
 
@@ -76,7 +77,7 @@ export default function HelpSupportScreen() {
           <TouchableOpacity
             key={i}
             style={[styles.faqItem, { borderBottomColor: colors.borderLight }]}
-            onPress={() => Alert.alert(faq.q, faq.a)}
+            onPress={() => showAlert(faq.q, faq.a)}
             activeOpacity={0.6}
           >
             <Text style={[styles.faqQuestion, { color: colors.text }]}>{faq.q}</Text>

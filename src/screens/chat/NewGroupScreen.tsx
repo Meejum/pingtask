@@ -5,7 +5,6 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -16,6 +15,7 @@ import { subscribeToContacts } from '../../services/contactService';
 import { createGroupConversation } from '../../services/chatService';
 import { spacing, typography, layout } from '../../constants';
 import { Avatar, Button, Input } from '../../components/common';
+import { showAlert } from '../../utils/alert';
 
 type Props = {
   navigation: NativeStackNavigationProp<ChatStackParamList, 'NewGroup'>;
@@ -46,11 +46,11 @@ export default function NewGroupScreen({ navigation }: Props) {
 
   const handleCreate = async () => {
     if (!groupName.trim()) {
-      Alert.alert('Error', 'Please enter a group name');
+      showAlert('Error', 'Please enter a group name');
       return;
     }
     if (selected.size === 0) {
-      Alert.alert('Error', 'Select at least one member');
+      showAlert('Error', 'Select at least one member');
       return;
     }
     if (!user) return;
@@ -71,7 +71,7 @@ export default function NewGroupScreen({ navigation }: Props) {
 
       navigation.replace('ChatRoom', { conversationId: convoId, title: groupName.trim() });
     } catch (error: any) {
-      Alert.alert('Error', error.message);
+      showAlert('Error', error.message);
     } finally {
       setCreating(false);
     }

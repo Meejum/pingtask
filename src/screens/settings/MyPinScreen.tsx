@@ -1,20 +1,23 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import QRCode from 'react-native-qrcode-svg';
 import { useThemeStore, useAuthStore } from '../../stores';
 import { spacing, typography, layout } from '../../constants';
+import { showAlert } from '../../utils/alert';
 
 export default function MyPinScreen() {
   const colors = useThemeStore((s) => s.colors);
   const user = useAuthStore((s) => s.user);
   const pin = user?.pin || '';
+  const qrValue = `pingtask://add/${pin}`;
 
   const copyPin = async () => {
     try {
       await navigator.clipboard.writeText(pin);
-      Alert.alert('Copied', 'PIN copied to clipboard');
+      showAlert('Copied', 'PIN copied to clipboard');
     } catch {
-      Alert.alert('Your PIN', pin);
+      showAlert('Your PIN', pin);
     }
   };
 
@@ -45,13 +48,19 @@ export default function MyPinScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* QR Code Placeholder */}
+        {/* QR Code */}
         <View style={[styles.qrCard, { backgroundColor: colors.surface }]}>
-          <View style={[styles.qrPlaceholder, { borderColor: colors.border }]}>
-            <Ionicons name="qr-code-outline" size={80} color={colors.textTertiary} />
+          <Text style={[styles.qrTitle, { color: colors.text }]}>Your QR Code</Text>
+          <View style={[styles.qrWrapper, { backgroundColor: '#FFFFFF' }]}>
+            <QRCode
+              value={qrValue}
+              size={180}
+              color="#1A1A2E"
+              backgroundColor="#FFFFFF"
+            />
           </View>
           <Text style={[styles.qrHint, { color: colors.textTertiary }]}>
-            QR code scanning coming soon
+            Others can scan this to add you instantly
           </Text>
         </View>
 
@@ -60,7 +69,7 @@ export default function MyPinScreen() {
           <View style={styles.instructionRow}>
             <Ionicons name="person-add-outline" size={20} color={colors.accentLight} />
             <Text style={[styles.instructionText, { color: colors.textSecondary }]}>
-              Others can add you by entering your PIN in the Add Contact screen
+              Others can add you by entering your PIN or scanning your QR code
             </Text>
           </View>
           <View style={styles.instructionRow}>
@@ -118,14 +127,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.xxl,
   },
-  qrPlaceholder: {
-    width: 160,
-    height: 160,
+  qrTitle: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.semibold,
+    marginBottom: spacing.lg,
+  },
+  qrWrapper: {
+    padding: spacing.lg,
     borderRadius: layout.borderRadius.md,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    justifyContent: 'center',
-    alignItems: 'center',
     marginBottom: spacing.md,
   },
   qrHint: {

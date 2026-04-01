@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
@@ -8,6 +8,7 @@ import { useThemeStore, useAuthStore } from '../../stores';
 import { spacing, typography, layout } from '../../constants';
 import { Button, Input, Avatar } from '../../components/common';
 import { searchByPin, addContact } from '../../services/contactService';
+import { showAlert } from '../../utils/alert';
 
 type Props = {
   navigation: NativeStackNavigationProp<ContactStackParamList, 'AddContact'>;
@@ -26,11 +27,11 @@ export default function AddContactScreen({ navigation, route }: Props) {
   const handleSearch = async () => {
     const trimmed = pin.trim().toUpperCase();
     if (!trimmed) {
-      Alert.alert('Error', 'Please enter a PIN');
+      showAlert('Error', 'Please enter a PIN');
       return;
     }
     if (trimmed === currentUser?.pin) {
-      Alert.alert('Error', "That's your own PIN!");
+      showAlert('Error', "That's your own PIN!");
       return;
     }
 
@@ -45,7 +46,7 @@ export default function AddContactScreen({ navigation, route }: Props) {
         setNotFound(true);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message);
+      showAlert('Error', error.message);
     } finally {
       setSearching(false);
     }
@@ -57,10 +58,10 @@ export default function AddContactScreen({ navigation, route }: Props) {
     setAdding(true);
     try {
       await addContact(currentUser.uid, foundUser);
-      Alert.alert('Added!', `${foundUser.displayName} has been added to your contacts`);
+      showAlert('Added!', `${foundUser.displayName} has been added to your contacts`);
       navigation.goBack();
     } catch (error: any) {
-      Alert.alert('Error', error.message);
+      showAlert('Error', error.message);
     } finally {
       setAdding(false);
     }
