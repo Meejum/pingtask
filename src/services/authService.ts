@@ -42,6 +42,16 @@ export function subscribeToAuth(
           await publishPublicKey(firebaseUser.uid, publicKey);
         }
       }
+      // Ensure PIN lookup doc exists (fixes users created before this was added)
+      if (userData.pin) {
+        const pinDoc = await getDoc(doc(db, 'pins', userData.pin));
+        if (!pinDoc.exists()) {
+          await setDoc(doc(db, 'pins', userData.pin), {
+            uid: firebaseUser.uid,
+            createdAt: serverTimestamp(),
+          });
+        }
+      }
       if (userData.displayName) {
         onUser(userData);
         return;
@@ -92,6 +102,12 @@ export function subscribeToUserDoc(
       const email = auth.currentUser?.email ?? null;
       // Generate E2EE keypair for this user
       const { publicKey } = generateKeyPair();
+
+      // Create the PIN lookup doc so others can find this user by PIN
+      await setDoc(doc(db, 'pins', pin), {
+        uid,
+        createdAt: serverTimestamp(),
+      });
 
       await setDoc(userRef, {
         uid,
