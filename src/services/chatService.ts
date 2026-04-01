@@ -16,7 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { Conversation, Message } from '../types';
-import { encryptMessage, decryptMessage, fetchPublicKey } from './cryptoService';
+import { encryptMessage, decryptMessage } from './cryptoService';
 
 // Subscribe to user's conversations
 export function subscribeToConversations(
@@ -163,8 +163,8 @@ export async function createGroupConversation(
 }
 
 // Send a message (encrypted for direct chats)
-// Stores TWO encrypted copies: one for sender, one for recipient
-// Each user decrypts the copy encrypted for them
+// Uses shared secret: both sender and recipient derive the same key via DH
+// Single ciphertext — both parties can decrypt
 export async function sendMessage(
   conversationId: string,
   senderId: string,
@@ -177,9 +177,10 @@ export async function sendMessage(
     senderId,
     senderName,
     type: 'text',
-    text, // plaintext fallback (used for groups or if encryption fails)
+    text,
     encrypted: false,
-    encryptedTexts: null, // { [uid]: ciphertext } — per-user encrypted copies
+    ciphertext: null,
+    otherUid: recipientUid || null, // stored so either party knows who to derive shared secret with
     mediaUrl: null,
     mediaType: null,
     fileName: null,
@@ -196,14 +197,11 @@ export async function sendMessage(
   // Encrypt for direct chats
   if (recipientUid) {
     try {
-      const result = await encryptMessage(text, senderId, recipientUid);
-      if (result) {
+      const encrypted = await encryptMessage(text, recipientUid);
+      if (encrypted) {
         msgData.encrypted = true;
-        msgData.encryptedTexts = {
-          [senderId]: result.forSender,
-          [recipientUid]: result.forRecipient,
-        };
-        msgData.text = '[Encrypted]'; // Server never stores plaintext
+        msgData.ciphertext = encrypted;
+        msgData.text = null; // Server never stores plaintext
       }
     } catch {
       // Fall back to plaintext
@@ -218,7 +216,8 @@ export async function sendMessage(
   return msgRef.id;
 }
 
-// Decrypt messages — each user decrypts their own copy
+// Decrypt messages using shared secret
+// Both sender and recipient derive the same shared secret via DH
 export async function decryptMessages(
   messages: Message[],
   currentUid: string,
@@ -228,25 +227,24 @@ export async function decryptMessages(
   for (const msg of messages) {
     const raw = msg as any;
 
-    // Check if message has per-user encrypted copies
-    if (raw.encrypted && raw.encryptedTexts && raw.encryptedTexts[currentUid]) {
-      try {
-        // Find who encrypted this message (the sender)
-        const senderPubKey = await fetchPublicKey(raw.senderId);
-        if (senderPubKey) {
-          const plaintext = decryptMessage(raw.encryptedTexts[currentUid], senderPubKey);
+    if (raw.encrypted && raw.ciphertext) {
+      // Figure out who the "other" person is for DH
+      const otherUid = raw.senderId === currentUid ? raw.otherUid : raw.senderId;
+
+      if (otherUid) {
+        try {
+          const plaintext = await decryptMessage(raw.ciphertext, otherUid);
           if (plaintext) {
             result.push({ ...msg, text: plaintext });
             continue;
           }
-        }
-      } catch {}
-      // Decryption failed
+        } catch {}
+      }
+
       result.push({ ...msg, text: '[Decryption failed]' });
       continue;
     }
 
-    // Not encrypted or no copy for this user — use plaintext
     result.push(msg);
   }
 

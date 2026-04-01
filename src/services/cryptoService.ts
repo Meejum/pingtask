@@ -1,14 +1,15 @@
 /**
- * E2EE using tweetnacl (NaCl box = Curve25519 + XSalsa20 + Poly1305)
+ * E2EE using tweetnacl — shared secret approach
  *
- * Architecture:
+ * How it works:
  * - Each user has a Curve25519 keypair (public + private)
- * - Private key stored only on device (localStorage for web, expo-secure-store for native)
- * - Public key published to Firestore user doc
- * - Messages stored with TWO encrypted copies:
- *   - encryptedForSender: encrypted with sender's own public key (so sender can re-read)
- *   - encryptedForRecipient: encrypted with recipient's public key
- * - Each user decrypts the copy encrypted for them
+ * - For a direct chat between Alice and Bob:
+ *   - Alice computes: sharedSecret = DH(Bob's public, Alice's private)
+ *   - Bob computes:   sharedSecret = DH(Alice's public, Bob's private)
+ *   - Both get the SAME shared secret (Diffie-Hellman property)
+ * - Message encrypted with nacl.secretbox using that shared secret
+ * - Single ciphertext stored — both parties can decrypt
+ * - Server sees only ciphertext — cannot derive the shared secret
  */
 
 import nacl from 'tweetnacl';
@@ -24,9 +25,8 @@ import { db } from '../config/firebase';
 const PRIVATE_KEY_STORAGE_KEY = 'pingtask_private_key';
 
 let cachedKeyPair: nacl.BoxKeyPair | null = null;
-
-// Public key cache to avoid repeated Firestore reads
 const publicKeyCache: Record<string, string> = {};
+const sharedSecretCache: Record<string, Uint8Array> = {};
 
 /**
  * Generate a new keypair and store it.
@@ -69,15 +69,6 @@ export function loadKeyPair(): nacl.BoxKeyPair | null {
 }
 
 /**
- * Get my own public key (base64 encoded).
- */
-export function getMyPublicKey(): string | null {
-  const kp = loadKeyPair();
-  if (!kp) return null;
-  return encodeBase64(kp.publicKey);
-}
-
-/**
  * Publish user's public key to Firestore.
  */
 export async function publishPublicKey(uid: string, publicKey: string): Promise<void> {
@@ -99,21 +90,40 @@ export async function fetchPublicKey(uid: string): Promise<string | null> {
 }
 
 /**
- * Encrypt a plaintext message for a specific public key.
+ * Compute shared secret with another user (cached).
+ * DH(theirPublic, myPrivate) — both sides get the same result.
  */
-export function encryptFor(
-  plaintext: string,
-  recipientPublicKeyB64: string,
-): string {
+function getSharedSecret(theirPublicKeyB64: string): Uint8Array | null {
+  if (sharedSecretCache[theirPublicKeyB64]) {
+    return sharedSecretCache[theirPublicKeyB64];
+  }
+
   const keyPair = loadKeyPair();
-  if (!keyPair) throw new Error('No keypair loaded');
+  if (!keyPair) return null;
 
-  const recipientPub = decodeBase64(recipientPublicKeyB64);
-  const nonce = nacl.randomBytes(nacl.box.nonceLength);
+  const theirPub = decodeBase64(theirPublicKeyB64);
+  const shared = nacl.box.before(theirPub, keyPair.secretKey);
+  sharedSecretCache[theirPublicKeyB64] = shared;
+  return shared;
+}
+
+/**
+ * Encrypt a message using the shared secret with another user.
+ * Returns base64(nonce + ciphertext).
+ */
+export async function encryptMessage(
+  plaintext: string,
+  otherUid: string,
+): Promise<string | null> {
+  const theirPubKey = await fetchPublicKey(otherUid);
+  if (!theirPubKey) return null;
+
+  const shared = getSharedSecret(theirPubKey);
+  if (!shared) return null;
+
+  const nonce = nacl.randomBytes(nacl.secretbox.nonceLength);
   const messageBytes = decodeUTF8(plaintext);
-
-  const encrypted = nacl.box(messageBytes, nonce, recipientPub, keyPair.secretKey);
-  if (!encrypted) throw new Error('Encryption failed');
+  const encrypted = nacl.secretbox(messageBytes, nonce, shared);
 
   const combined = new Uint8Array(nonce.length + encrypted.length);
   combined.set(nonce);
@@ -123,42 +133,25 @@ export function encryptFor(
 }
 
 /**
- * Encrypt a message for BOTH sender and recipient.
- * Returns two ciphertexts so each party can read the message.
+ * Decrypt a message using the shared secret with the sender.
+ * Both parties derive the same shared secret, so this works for both.
  */
-export async function encryptMessage(
-  plaintext: string,
-  senderUid: string,
-  recipientUid: string,
-): Promise<{ forSender: string; forRecipient: string } | null> {
-  const myPubKey = getMyPublicKey();
-  const theirPubKey = await fetchPublicKey(recipientUid);
-
-  if (!myPubKey || !theirPubKey) return null;
-
-  return {
-    forSender: encryptFor(plaintext, myPubKey),
-    forRecipient: encryptFor(plaintext, theirPubKey),
-  };
-}
-
-/**
- * Decrypt a message that was encrypted for me.
- */
-export function decryptMessage(
+export async function decryptMessage(
   encryptedB64: string,
-  senderPublicKeyB64: string,
-): string | null {
-  const keyPair = loadKeyPair();
-  if (!keyPair) return null;
+  otherUid: string,
+): Promise<string | null> {
+  const theirPubKey = await fetchPublicKey(otherUid);
+  if (!theirPubKey) return null;
+
+  const shared = getSharedSecret(theirPubKey);
+  if (!shared) return null;
 
   try {
     const combined = decodeBase64(encryptedB64);
-    const nonce = combined.slice(0, nacl.box.nonceLength);
-    const ciphertext = combined.slice(nacl.box.nonceLength);
-    const senderPub = decodeBase64(senderPublicKeyB64);
+    const nonce = combined.slice(0, nacl.secretbox.nonceLength);
+    const ciphertext = combined.slice(nacl.secretbox.nonceLength);
 
-    const decrypted = nacl.box.open(ciphertext, nonce, senderPub, keyPair.secretKey);
+    const decrypted = nacl.secretbox.open(ciphertext, nonce, shared);
     if (!decrypted) return null;
 
     return encodeUTF8(decrypted);
