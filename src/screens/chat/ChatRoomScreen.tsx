@@ -31,12 +31,14 @@ import {
   sendPing,
   sendVoiceMessage,
   deleteMessage,
+  cleanupDisappearingMessages,
 } from '../../services/chatService';
 import { uploadVoiceNote } from '../../services/voiceService';
 import VoiceNoteButton from '../../components/chat/VoiceNoteButton';
 import VoiceNoteBubble from '../../components/chat/VoiceNoteBubble';
 import DateSeparator, { formatMessageDate } from '../../components/chat/DateSeparator';
 import ScrollToBottomBtn from '../../components/chat/ScrollToBottom';
+import ForwardPicker from '../../components/chat/ForwardPicker';
 
 type Props = NativeStackScreenProps<ChatStackParamList, 'ChatRoom'>;
 
@@ -81,6 +83,7 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
   const [menuVisible, setMenuVisible] = useState(false);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [reactionMsg, setReactionMsg] = useState<Message | null>(null);
+  const [forwardMsg, setForwardMsg] = useState<Message | null>(null);
   const lastTapRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const flatListRef = useRef<FlatList>(null);
@@ -97,6 +100,8 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
       }
     });
     if (user?.uid) markConversationRead(conversationId, user.uid);
+    // Clean up expired disappearing messages
+    cleanupDisappearingMessages(conversationId);
     return () => {
       unsub();
       setCurrentMessages([]);
@@ -366,10 +371,26 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
           }
         }}
         onForward={() => {
-          // TODO: forward to another conversation
+          if (selectedMsg) setForwardMsg(selectedMsg);
         }}
         onDelete={() => {
           if (selectedMsg) deleteMessage(conversationId, selectedMsg.id);
+        }}
+      />
+
+      {/* Forward Picker */}
+      <ForwardPicker
+        visible={!!forwardMsg}
+        onClose={() => setForwardMsg(null)}
+        onSelect={async (targetConvoId, title) => {
+          if (!forwardMsg || !user?.uid) return;
+          const fwdText = forwardMsg.text || '';
+          await sendMessage(
+            targetConvoId,
+            user.uid,
+            user.displayName,
+            `↪ Forwarded: ${fwdText}`,
+          );
         }}
       />
 

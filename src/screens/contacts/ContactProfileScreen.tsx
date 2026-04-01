@@ -7,7 +7,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { ContactStackParamList, User } from '../../types';
 import { useThemeStore, useAuthStore } from '../../stores';
-import { removeContact } from '../../services/contactService';
+import { removeContact, blockUser, isUserBlocked, unblockUser } from '../../services/contactService';
 import { getOrCreateDirectConversation } from '../../services/chatService';
 import { spacing, typography, layout } from '../../constants';
 import { Avatar, Button, LoadingScreen } from '../../components/common';
@@ -23,14 +23,19 @@ export default function ContactProfileScreen({ navigation, route }: Props) {
   const currentUser = useAuthStore((s) => s.user);
   const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [blocked, setBlocked] = useState(false);
 
   useEffect(() => {
     (async () => {
       const d = await getDoc(doc(db, 'users', route.params.uid));
       if (d.exists()) setProfile(d.data() as User);
+      if (currentUser?.uid) {
+        const b = await isUserBlocked(currentUser.uid, route.params.uid);
+        setBlocked(b);
+      }
       setLoading(false);
     })();
-  }, [route.params.uid]);
+  }, [route.params.uid, currentUser?.uid]);
 
   const handleRemove = () => {
     if (!currentUser?.uid || !profile) return;
@@ -136,6 +141,31 @@ export default function ContactProfileScreen({ navigation, route }: Props) {
         onPress={handleRemove}
         textStyle={{ color: colors.error }}
         style={{ borderColor: colors.error, marginTop: spacing.lg }}
+      />
+      <Button
+        title={blocked ? 'Unblock User' : 'Block User'}
+        variant="ghost"
+        onPress={async () => {
+          if (!currentUser?.uid || !profile) return;
+          if (blocked) {
+            await unblockUser(currentUser.uid, profile.uid);
+            setBlocked(false);
+            showAlert('Unblocked', `${profile.displayName} has been unblocked`);
+          } else {
+            showAlert('Block User', `Block ${profile.displayName}? They won't be able to contact you.`, [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Block',
+                style: 'destructive',
+                onPress: async () => {
+                  await blockUser(currentUser.uid, profile.uid);
+                  setBlocked(true);
+                },
+              },
+            ]);
+          }
+        }}
+        textStyle={{ color: blocked ? colors.success : colors.error }}
       />
     </ScrollView>
   );

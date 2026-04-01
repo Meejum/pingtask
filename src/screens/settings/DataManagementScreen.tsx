@@ -1,21 +1,39 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore, useAuthStore } from '../../stores';
 import { spacing, typography, layout } from '../../constants';
 import { showAlert } from '../../utils/alert';
+import { exportUserData, downloadJson, deleteAccount } from '../../services/accountService';
+import { signOut } from '../../services/authService';
 
 export default function DataManagementScreen() {
   const colors = useThemeStore((s) => s.colors);
   const user = useAuthStore((s) => s.user);
+  const [exporting, setExporting] = useState(false);
 
   const handleExport = () => {
     showAlert(
       'Export Data',
-      'We will prepare a download of all your data including messages, contacts, and tasks. You will be notified when it is ready.',
+      'Download all your data as a JSON file including contacts, conversations, and tasks.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Request Export', onPress: () => showAlert('Coming Soon', 'Data export will be available in a future update') },
+        {
+          text: 'Export',
+          onPress: async () => {
+            if (!user?.uid) return;
+            setExporting(true);
+            try {
+              const data = await exportUserData(user.uid);
+              downloadJson(data, `pingtask-export-${user.uid}.json`);
+              showAlert('Success', 'Your data has been downloaded');
+            } catch (e: any) {
+              showAlert('Error', e.message);
+            } finally {
+              setExporting(false);
+            }
+          },
+        },
       ],
     );
   };
@@ -26,7 +44,11 @@ export default function DataManagementScreen() {
       'Your account will be hidden and you will be signed out. You can reactivate by signing in again.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Deactivate', style: 'destructive', onPress: () => showAlert('Coming Soon', 'Account deactivation will be available in a future update') },
+        {
+          text: 'Deactivate',
+          style: 'destructive',
+          onPress: () => signOut(),
+        },
       ],
     );
   };
@@ -37,7 +59,19 @@ export default function DataManagementScreen() {
       'This will permanently delete your account and all associated data. This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete Account', style: 'destructive', onPress: () => showAlert('Coming Soon', 'Account deletion will be available in a future update') },
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: async () => {
+            if (!user?.uid) return;
+            try {
+              await deleteAccount(user.uid);
+              showAlert('Account Deleted', 'Your account and data have been permanently removed.');
+            } catch (e: any) {
+              showAlert('Error', e.message);
+            }
+          },
+        },
       ],
     );
   };

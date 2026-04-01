@@ -5,7 +5,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { ChatStackParamList, Conversation, Participant } from '../../types';
-import { setDisappearingTimer } from '../../services/chatService';
+import { setDisappearingTimer, clearChatHistory } from '../../services/chatService';
 import { useThemeStore, useAuthStore } from '../../stores';
 import { spacing, typography, layout } from '../../constants';
 import { Avatar, LoadingScreen } from '../../components/common';
@@ -157,7 +157,7 @@ export default function ChatInfoScreen({ route, navigation }: Props) {
           style={styles.dangerRow}
           onPress={() => showAlert('Clear Chat', 'Delete all messages in this chat?', [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Clear', style: 'destructive', onPress: () => {} },
+            { text: 'Clear', style: 'destructive', onPress: () => clearChatHistory(conversationId) },
           ])}
         >
           <Ionicons name="trash-outline" size={20} color={colors.error} />

@@ -23,6 +23,11 @@ service cloud.firestore {
       allow read, write: if request.auth.uid == uid;
     }
 
+    // Blocked users: only owner can manage
+    match /blocked/{uid}/list/{blockedUid} {
+      allow read, write: if request.auth.uid == uid;
+    }
+
     // Contacts: owner can read/write, authenticated users can create (for reverse contact add)
     match /contacts/{uid}/list/{contactId} {
       allow read, delete: if request.auth.uid == uid;

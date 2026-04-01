@@ -21,9 +21,25 @@ export const onMessageCreate = functions.firestore
     const participantUids: string[] = convo.participantUids || [];
     const senderId: string = message.senderId;
 
+    // Determine preview text based on message type and encryption
+    let previewText = '';
+    if (message.isPing) {
+      previewText = '🔔 Ping!';
+    } else if (message.encrypted) {
+      previewText = '🔒 Encrypted message';
+    } else if (message.type === 'voice') {
+      previewText = '🎤 Voice note';
+    } else if (message.type === 'image') {
+      previewText = '📷 Photo';
+    } else if (message.type === 'file') {
+      previewText = '📎 File';
+    } else {
+      previewText = (message.text || '').substring(0, 100);
+    }
+
     // 1. Update lastMessage preview
     const updateData: Record<string, any> = {
-      'lastMessage.text': (message.text || '').substring(0, 100),
+      'lastMessage.text': previewText,
       'lastMessage.senderId': senderId,
       'lastMessage.senderName': message.senderName,
       'lastMessage.type': message.type,
@@ -58,12 +74,10 @@ export const onMessageCreate = functions.firestore
     }
 
     if (tokens.length > 0) {
-      const notificationBody =
-        message.type === 'image'
-          ? '📷 Photo'
-          : message.type === 'file'
-            ? '📎 File'
-            : message.text || '';
+      // For encrypted messages, don't leak content in push notification
+      const notificationBody = message.encrypted
+        ? 'New encrypted message'
+        : previewText;
 
       const payload: admin.messaging.MulticastMessage = {
         tokens,
@@ -105,40 +119,41 @@ export const onMessageCreate = functions.firestore
       }
     }
 
-    // 4. Extract @mentions and create tasks
-    const mentions = message.mentions || [];
-    if (mentions.length > 0) {
-      const batch = db.batch();
-      const seenUids = new Set<string>();
+    // 4. Extract @mentions and create tasks (only for non-encrypted messages)
+    if (!message.encrypted) {
+      const mentions = message.mentions || [];
+      if (mentions.length > 0) {
+        const batch = db.batch();
+        const seenUids = new Set<string>();
 
-      for (const mention of mentions) {
-        // Skip self-mentions and duplicates
-        if (mention.uid === senderId || seenUids.has(mention.uid)) continue;
-        seenUids.add(mention.uid);
+        for (const mention of mentions) {
+          if (mention.uid === senderId || seenUids.has(mention.uid)) continue;
+          seenUids.add(mention.uid);
 
-        const taskRef = db.collection('tasks').doc();
-        batch.set(taskRef, {
-          id: taskRef.id,
-          sourceMessageId: snapshot.id,
-          sourceConversationId: conversationId,
-          assignedTo: mention.uid,
-          assignedToName: mention.displayName,
-          assignedBy: senderId,
-          assignedByName: message.senderName,
-          title: (message.text || '').substring(0, 200),
-          description: message.text || null,
-          status: 'todo',
-          participants: [mention.uid, senderId],
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          completedAt: null,
-        });
+          const taskRef = db.collection('tasks').doc();
+          batch.set(taskRef, {
+            id: taskRef.id,
+            sourceMessageId: snapshot.id,
+            sourceConversationId: conversationId,
+            assignedTo: mention.uid,
+            assignedToName: mention.displayName,
+            assignedBy: senderId,
+            assignedByName: message.senderName,
+            title: (message.text || '').substring(0, 200),
+            description: message.text || null,
+            status: 'todo',
+            participants: [mention.uid, senderId],
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            completedAt: null,
+          });
+        }
+
+        await batch.commit();
+        functions.logger.info(
+          `Created ${seenUids.size} tasks from message ${snapshot.id}`
+        );
       }
-
-      await batch.commit();
-      functions.logger.info(
-        `Created ${seenUids.size} tasks from message ${snapshot.id}`
-      );
     }
   });
 
@@ -148,7 +163,6 @@ export const onMessageUpdate = functions.firestore
     const before = change.before.data();
     const after = change.after.data();
 
-    // Only recalculate if deliveryStatus changed
     const beforeStatus = JSON.stringify(before.deliveryStatus || {});
     const afterStatus = JSON.stringify(after.deliveryStatus || {});
     if (beforeStatus === afterStatus) return;
@@ -160,7 +174,6 @@ export const onMessageUpdate = functions.firestore
 
     if (statuses.length === 0) return;
 
-    // Aggregate: worst status wins
     let aggregate: string = 'read';
     for (const entry of statuses) {
       if (entry.status === 'sent') {
@@ -172,7 +185,6 @@ export const onMessageUpdate = functions.firestore
       }
     }
 
-    // Only update if changed to avoid infinite loop
     if (aggregate !== after.aggregateStatus) {
       await change.after.ref.update({ aggregateStatus: aggregate });
     }

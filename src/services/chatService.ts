@@ -429,6 +429,58 @@ export async function setDisappearingTimer(
   });
 }
 
+// Clean up expired disappearing messages
+export async function cleanupDisappearingMessages(
+  conversationId: string,
+): Promise<number> {
+  const convoDoc = await getDoc(doc(db, 'conversations', conversationId));
+  if (!convoDoc.exists()) return 0;
+
+  const disappearingSeconds = convoDoc.data().disappearingSeconds;
+  if (!disappearingSeconds) return 0;
+
+  const cutoff = new Date(Date.now() - disappearingSeconds * 1000);
+  const msgsQuery = query(
+    collection(db, `conversations/${conversationId}/messages`),
+    orderBy('createdAt', 'asc'),
+  );
+  const snap = await getDocs(msgsQuery);
+  let deleted = 0;
+
+  for (const msgDoc of snap.docs) {
+    const data = msgDoc.data();
+    if (data.createdAt?.toDate && data.createdAt.toDate() < cutoff && !data.isDeleted) {
+      await updateDoc(msgDoc.ref, { isDeleted: true, text: null, ciphertext: null, mediaUrl: null });
+      deleted++;
+    }
+  }
+
+  return deleted;
+}
+
+// Clear all messages in a conversation
+export async function clearChatHistory(
+  conversationId: string,
+): Promise<void> {
+  const msgsQuery = query(collection(db, `conversations/${conversationId}/messages`));
+  const snap = await getDocs(msgsQuery);
+
+  const batch: Promise<void>[] = [];
+  snap.docs.forEach((msgDoc) => {
+    batch.push(
+      updateDoc(msgDoc.ref, { isDeleted: true, text: null, ciphertext: null, mediaUrl: null })
+    );
+  });
+  await Promise.all(batch);
+
+  // Reset last message
+  await updateDoc(doc(db, 'conversations', conversationId), {
+    'lastMessage.text': 'Chat cleared',
+    'lastMessage.type': 'system',
+    updatedAt: serverTimestamp(),
+  });
+}
+
 // Typing indicator
 export async function setTyping(
   conversationId: string,

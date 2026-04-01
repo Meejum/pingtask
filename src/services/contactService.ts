@@ -78,6 +78,42 @@ export async function removeContact(
   await deleteDoc(doc(db, `contacts/${currentUid}/list`, targetUid));
 }
 
+// Block a user
+export async function blockUser(
+  currentUid: string,
+  targetUid: string,
+): Promise<void> {
+  await setDoc(doc(db, `blocked/${currentUid}/list`, targetUid), {
+    uid: targetUid,
+    blockedAt: serverTimestamp(),
+  });
+}
+
+// Unblock a user
+export async function unblockUser(
+  currentUid: string,
+  targetUid: string,
+): Promise<void> {
+  await deleteDoc(doc(db, `blocked/${currentUid}/list`, targetUid));
+}
+
+// Get blocked users list
+export async function getBlockedUsers(
+  currentUid: string,
+): Promise<string[]> {
+  const snap = await getDocs(collection(db, `blocked/${currentUid}/list`));
+  return snap.docs.map((d) => d.id);
+}
+
+// Check if a user is blocked
+export async function isUserBlocked(
+  currentUid: string,
+  targetUid: string,
+): Promise<boolean> {
+  const d = await getDoc(doc(db, `blocked/${currentUid}/list`, targetUid));
+  return d.exists();
+}
+
 export async function getContact(
   currentUid: string,
   targetUid: string,
