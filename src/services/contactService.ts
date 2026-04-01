@@ -33,7 +33,7 @@ export function subscribeToContacts(
 }
 
 export async function searchByPin(pin: string): Promise<User | null> {
-  const pinDoc = await getDoc(doc(db, 'pins', pin.toUpperCase()));
+  const pinDoc = await getDoc(doc(db, 'pins', pin.trim().toUpperCase()));
   if (!pinDoc.exists()) return null;
 
   const { uid } = pinDoc.data();

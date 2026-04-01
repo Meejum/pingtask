@@ -263,6 +263,83 @@ export async function markConversationRead(
   });
 }
 
+// Send a BBM-style "Ping!" to a conversation
+export async function sendPing(
+  conversationId: string,
+  senderId: string,
+  senderName: string,
+): Promise<void> {
+  await addDoc(
+    collection(db, `conversations/${conversationId}/messages`),
+    {
+      senderId,
+      senderName,
+      type: 'system',
+      text: `${senderName} sent a Ping! 🔔`,
+      encrypted: false,
+      mediaUrl: null,
+      mediaType: null,
+      fileName: null,
+      fileSize: null,
+      thumbnailUrl: null,
+      mentions: [],
+      deliveryStatus: {},
+      aggregateStatus: 'sent',
+      isPing: true,
+      createdAt: serverTimestamp(),
+      editedAt: null,
+      isDeleted: false,
+    },
+  );
+}
+
+// Send a voice note message
+export async function sendVoiceMessage(
+  conversationId: string,
+  senderId: string,
+  senderName: string,
+  mediaUrl: string,
+  durationMs: number,
+): Promise<void> {
+  await addDoc(
+    collection(db, `conversations/${conversationId}/messages`),
+    {
+      senderId,
+      senderName,
+      type: 'voice',
+      text: null,
+      encrypted: false,
+      mediaUrl,
+      mediaType: 'audio/m4a',
+      fileName: null,
+      fileSize: null,
+      thumbnailUrl: null,
+      durationMs,
+      mentions: [],
+      deliveryStatus: {},
+      aggregateStatus: 'sent',
+      createdAt: serverTimestamp(),
+      editedAt: null,
+      isDeleted: false,
+    },
+  );
+}
+
+// Delete a message (mark as deleted)
+export async function deleteMessage(
+  conversationId: string,
+  messageId: string,
+): Promise<void> {
+  await updateDoc(
+    doc(db, `conversations/${conversationId}/messages`, messageId),
+    {
+      isDeleted: true,
+      text: null,
+      mediaUrl: null,
+    },
+  );
+}
+
 // React to a message
 export async function toggleReaction(
   conversationId: string,

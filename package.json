@@ -25,6 +25,7 @@
     "react-native-svg": "^15.8.0",
     "react-native-qrcode-svg": "^6.3.2",
     "expo-image-picker": "~16.1.0",
+    "expo-av": "~15.0.0",
     "expo-local-authentication": "~15.0.0",
     "tweetnacl": "^1.0.3",
     "tweetnacl-util": "^0.15.1",

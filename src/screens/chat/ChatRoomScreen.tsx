@@ -26,7 +26,15 @@ import MessageActionMenu from '../../components/chat/MessageActionMenu';
 import TypingIndicator from '../../components/chat/TypingIndicator';
 import ReactionPicker, { ReactionBubbles } from '../../components/chat/ReactionPicker';
 import LinkPreview, { extractUrls } from '../../components/chat/LinkPreview';
-import { toggleReaction } from '../../services/chatService';
+import {
+  toggleReaction,
+  sendPing,
+  sendVoiceMessage,
+  deleteMessage,
+} from '../../services/chatService';
+import { uploadVoiceNote } from '../../services/voiceService';
+import VoiceNoteButton from '../../components/chat/VoiceNoteButton';
+import VoiceNoteBubble from '../../components/chat/VoiceNoteBubble';
 
 type Props = NativeStackScreenProps<ChatStackParamList, 'ChatRoom'>;
 
@@ -174,7 +182,22 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
               {msg.senderName}
             </Text>
           )}
-          <Text style={[styles.messageText, { color: colors.text }]}>{msg.text}</Text>
+          {/* Deleted message */}
+          {msg.isDeleted ? (
+            <Text style={[styles.deletedText, { color: colors.textTertiary }]}>
+              <Ionicons name="ban-outline" size={12} /> This message was deleted
+            </Text>
+          ) : /* Ping message */
+          (msg as any).isPing ? (
+            <Text style={[styles.pingText, { color: colors.accentLight }]}>
+              🔔 Ping!
+            </Text>
+          ) : /* Voice note */
+          msg.type === 'voice' && msg.mediaUrl ? (
+            <VoiceNoteBubble mediaUrl={msg.mediaUrl} durationMs={(msg as any).durationMs} />
+          ) : (
+            <Text style={[styles.messageText, { color: colors.text }]}>{msg.text}</Text>
+          )}
           {/* Link previews */}
           {msg.text && extractUrls(msg.text).slice(0, 1).map((url) => (
             <LinkPreview key={url} url={url} />
@@ -246,8 +269,14 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
 
       {/* Input Area */}
       <View style={[styles.inputBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
-        <TouchableOpacity style={styles.inputAction}>
-          <Ionicons name="add-circle-outline" size={26} color={colors.textTertiary} />
+        {/* Ping button */}
+        <TouchableOpacity
+          style={styles.inputAction}
+          onPress={() => {
+            if (user?.uid) sendPing(conversationId, user.uid, user.displayName);
+          }}
+        >
+          <Ionicons name="notifications-outline" size={22} color={colors.textTertiary} />
         </TouchableOpacity>
         <TextInput
           style={[styles.textInput, { backgroundColor: colors.inputBackground, color: colors.text }]}
@@ -260,13 +289,23 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
           onSubmitEditing={handleSend}
           blurOnSubmit={false}
         />
-        <TouchableOpacity
-          style={[styles.sendButton, { backgroundColor: text.trim() ? colors.accentLight : colors.surfaceVariant }]}
-          onPress={handleSend}
-          disabled={!text.trim() || sending}
-        >
-          <Ionicons name="send" size={18} color={text.trim() ? '#FFFFFF' : colors.textTertiary} />
-        </TouchableOpacity>
+        {text.trim() ? (
+          <TouchableOpacity
+            style={[styles.sendButton, { backgroundColor: colors.accentLight }]}
+            onPress={handleSend}
+            disabled={sending}
+          >
+            <Ionicons name="send" size={18} color="#FFFFFF" />
+          </TouchableOpacity>
+        ) : (
+          <VoiceNoteButton
+            onRecorded={async (uri, durationMs) => {
+              if (!user?.uid) return;
+              const url = await uploadVoiceNote(conversationId, uri);
+              await sendVoiceMessage(conversationId, user.uid, user.displayName, url, durationMs);
+            }}
+          />
+        )}
       </View>
 
       {/* Message Action Menu */}
@@ -286,7 +325,7 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
           // TODO: forward to another conversation
         }}
         onDelete={() => {
-          // TODO: delete message from Firestore
+          if (selectedMsg) deleteMessage(conversationId, selectedMsg.id);
         }}
       />
 
@@ -340,6 +379,14 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: typography.fontSize.md,
     lineHeight: 20,
+  },
+  deletedText: {
+    fontSize: typography.fontSize.md,
+    fontStyle: 'italic',
+  },
+  pingText: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
   },
   metaRow: {
     flexDirection: 'row',
