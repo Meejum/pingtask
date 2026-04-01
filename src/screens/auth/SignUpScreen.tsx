@@ -2,19 +2,15 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   StyleSheet,
-  TouchableOpacity,
   Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import {
-  createUserWithEmailAndPassword,
-} from 'firebase/auth';
-import { auth } from '../../config/firebase';
 import { useThemeStore } from '../../stores';
 import { spacing, typography, layout } from '../../constants';
+import { Button, Input } from '../../components/common';
+import { signUp } from '../../services/authService';
 
 export default function SignUpScreen() {
   const colors = useThemeStore((s) => s.colors);
@@ -39,8 +35,8 @@ export default function SignUpScreen() {
 
     setLoading(true);
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      // Cloud Function onUserCreate will generate PIN and create user doc
+      await signUp(email.trim(), password);
+      // onAuthStateChanged will detect the new user and set needsProfile → routes to SetProfile
     } catch (error: any) {
       Alert.alert('Sign Up Failed', error.message);
     } finally {
@@ -59,54 +55,33 @@ export default function SignUpScreen() {
       </Text>
 
       <View style={styles.form}>
-        <TextInput
-          style={[
-            styles.input,
-            { backgroundColor: colors.inputBackground, color: colors.text, borderColor: colors.border },
-          ]}
+        <Input
           placeholder="Email"
-          placeholderTextColor={colors.textTertiary}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
           autoCapitalize="none"
+          autoComplete="email"
         />
-        <TextInput
-          style={[
-            styles.input,
-            { backgroundColor: colors.inputBackground, color: colors.text, borderColor: colors.border },
-          ]}
+        <Input
           placeholder="Password"
-          placeholderTextColor={colors.textTertiary}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
         />
-        <TextInput
-          style={[
-            styles.input,
-            { backgroundColor: colors.inputBackground, color: colors.text, borderColor: colors.border },
-          ]}
+        <Input
           placeholder="Confirm Password"
-          placeholderTextColor={colors.textTertiary}
           value={confirmPassword}
           onChangeText={setConfirmPassword}
           secureTextEntry
         />
       </View>
 
-      <TouchableOpacity
-        style={[
-          styles.button,
-          { backgroundColor: colors.accentLight, opacity: loading ? 0.6 : 1 },
-        ]}
+      <Button
+        title={loading ? 'Creating Account...' : 'Sign Up'}
         onPress={handleSignUp}
-        disabled={loading}
-      >
-        <Text style={styles.buttonText}>
-          {loading ? 'Creating Account...' : 'Sign Up'}
-        </Text>
-      </TouchableOpacity>
+        loading={loading}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -129,23 +104,5 @@ const styles = StyleSheet.create({
   form: {
     gap: spacing.md,
     marginBottom: spacing.xxl,
-  },
-  input: {
-    height: layout.inputHeight,
-    borderRadius: layout.borderRadius.md,
-    paddingHorizontal: spacing.lg,
-    fontSize: typography.fontSize.md,
-    borderWidth: 1,
-  },
-  button: {
-    height: layout.inputHeight,
-    borderRadius: layout.borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
   },
 });

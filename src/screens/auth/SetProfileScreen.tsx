@@ -1,125 +1,92 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
-import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../../config/firebase';
+import { View, Text, StyleSheet } from 'react-native';
 import { useThemeStore, useAuthStore } from '../../stores';
 import { spacing, typography, layout, config } from '../../constants';
+import { Button, Input, LoadingScreen } from '../../components/common';
+import {
+  getCurrentUid,
+  subscribeToUserDoc,
+  setDisplayName,
+} from '../../services/authService';
 
 export default function SetProfileScreen() {
   const colors = useThemeStore((s) => s.colors);
   const setUser = useAuthStore((s) => s.setUser);
-  const [displayName, setDisplayName] = useState('');
+  const [displayName, setName] = useState('');
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
   const [waitingForPin, setWaitingForPin] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    const uid = auth.currentUser?.uid;
+    const uid = getCurrentUid();
     if (!uid) return;
 
-    // Listen for user doc (created by Cloud Function with PIN)
-    const unsubscribe = onSnapshot(doc(db, 'users', uid), (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data();
-        if (data.pin) {
-          setPin(data.pin);
-          setWaitingForPin(false);
-        }
-      }
+    const unsubscribe = subscribeToUserDoc(uid, (generatedPin) => {
+      setPin(generatedPin);
+      setWaitingForPin(false);
     });
 
     return unsubscribe;
   }, []);
 
   const handleContinue = async () => {
-    if (!displayName.trim()) {
-      Alert.alert('Error', 'Please enter your display name');
+    const trimmed = displayName.trim();
+    if (!trimmed) {
+      setError('Please enter your display name');
       return;
     }
 
-    const uid = auth.currentUser?.uid;
+    const uid = getCurrentUid();
     if (!uid) return;
 
     setLoading(true);
+    setError('');
     try {
-      await updateDoc(doc(db, 'users', uid), {
-        displayName: displayName.trim(),
-        updatedAt: serverTimestamp(),
-      });
-
-      // Fetch full user doc and set in store
-      const userDoc = await (await import('firebase/firestore')).getDoc(doc(db, 'users', uid));
-      if (userDoc.exists()) {
-        setUser({ id: userDoc.id, ...userDoc.data() } as any);
-      }
-    } catch (error: any) {
-      Alert.alert('Error', error.message);
+      const userData = await setDisplayName(uid, trimmed);
+      setUser(userData);
+    } catch (err: any) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
+  if (waitingForPin) {
+    return <LoadingScreen message="Generating your unique PIN..." />;
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Text style={[styles.title, { color: colors.text }]}>Set Up Profile</Text>
 
-      {waitingForPin ? (
-        <View style={styles.pinWaiting}>
-          <ActivityIndicator size="large" color={colors.accentLight} />
-          <Text style={[styles.pinWaitingText, { color: colors.textSecondary }]}>
-            Generating your unique PIN...
-          </Text>
-        </View>
-      ) : (
-        <>
-          <View style={[styles.pinBox, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.pinLabel, { color: colors.textSecondary }]}>
-              Your PIN
-            </Text>
-            <Text style={[styles.pinValue, { color: colors.accentLight }]}>
-              {pin}
-            </Text>
-            <Text style={[styles.pinHint, { color: colors.textTertiary }]}>
-              Share this PIN so others can add you
-            </Text>
-          </View>
+      <View style={[styles.pinBox, { backgroundColor: colors.surface }]}>
+        <Text style={[styles.pinLabel, { color: colors.textSecondary }]}>
+          Your PIN
+        </Text>
+        <Text style={[styles.pinValue, { color: colors.accentLight }]}>
+          {pin}
+        </Text>
+        <Text style={[styles.pinHint, { color: colors.textTertiary }]}>
+          Share this PIN so others can add you
+        </Text>
+      </View>
 
-          <View style={styles.form}>
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: colors.inputBackground, color: colors.text, borderColor: colors.border },
-              ]}
-              placeholder="Display Name"
-              placeholderTextColor={colors.textTertiary}
-              value={displayName}
-              onChangeText={setDisplayName}
-              maxLength={config.MAX_DISPLAY_NAME_LENGTH}
-            />
-          </View>
+      <View style={styles.form}>
+        <Input
+          placeholder="Display Name"
+          value={displayName}
+          onChangeText={(t) => {
+            setName(t);
+            if (error) setError('');
+          }}
+          maxLength={config.MAX_DISPLAY_NAME_LENGTH}
+          error={error}
+          onSubmitEditing={handleContinue}
+        />
+      </View>
 
-          <TouchableOpacity
-            style={[
-              styles.button,
-              { backgroundColor: colors.accentLight, opacity: loading ? 0.6 : 1 },
-            ]}
-            onPress={handleContinue}
-            disabled={loading}
-          >
-            <Text style={styles.buttonText}>
-              {loading ? 'Setting Up...' : 'Continue'}
-            </Text>
-          </TouchableOpacity>
-        </>
-      )}
+      <Button title="Continue" onPress={handleContinue} loading={loading} />
     </View>
   );
 }
@@ -134,13 +101,6 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.xxl,
     fontWeight: typography.fontWeight.bold,
     marginBottom: spacing.xxl,
-  },
-  pinWaiting: {
-    alignItems: 'center',
-    gap: spacing.lg,
-  },
-  pinWaitingText: {
-    fontSize: typography.fontSize.md,
   },
   pinBox: {
     padding: spacing.xxl,
@@ -164,23 +124,5 @@ const styles = StyleSheet.create({
   form: {
     gap: spacing.md,
     marginBottom: spacing.xxl,
-  },
-  input: {
-    height: layout.inputHeight,
-    borderRadius: layout.borderRadius.md,
-    paddingHorizontal: spacing.lg,
-    fontSize: typography.fontSize.md,
-    borderWidth: 1,
-  },
-  button: {
-    height: layout.inputHeight,
-    borderRadius: layout.borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
   },
 });

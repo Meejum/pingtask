@@ -2,17 +2,15 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   StyleSheet,
-  TouchableOpacity,
   Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../../config/firebase';
 import { useThemeStore } from '../../stores';
 import { spacing, typography, layout } from '../../constants';
+import { Button, Input } from '../../components/common';
+import { signIn } from '../../services/authService';
 
 export default function SignInScreen() {
   const colors = useThemeStore((s) => s.colors);
@@ -28,7 +26,7 @@ export default function SignInScreen() {
 
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signIn(email.trim(), password);
     } catch (error: any) {
       Alert.alert('Sign In Failed', error.message);
     } finally {
@@ -47,43 +45,28 @@ export default function SignInScreen() {
       </Text>
 
       <View style={styles.form}>
-        <TextInput
-          style={[
-            styles.input,
-            { backgroundColor: colors.inputBackground, color: colors.text, borderColor: colors.border },
-          ]}
+        <Input
           placeholder="Email"
-          placeholderTextColor={colors.textTertiary}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
           autoCapitalize="none"
+          autoComplete="email"
         />
-        <TextInput
-          style={[
-            styles.input,
-            { backgroundColor: colors.inputBackground, color: colors.text, borderColor: colors.border },
-          ]}
+        <Input
           placeholder="Password"
-          placeholderTextColor={colors.textTertiary}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
+          onSubmitEditing={handleSignIn}
         />
       </View>
 
-      <TouchableOpacity
-        style={[
-          styles.button,
-          { backgroundColor: colors.accentLight, opacity: loading ? 0.6 : 1 },
-        ]}
+      <Button
+        title={loading ? 'Signing In...' : 'Sign In'}
         onPress={handleSignIn}
-        disabled={loading}
-      >
-        <Text style={styles.buttonText}>
-          {loading ? 'Signing In...' : 'Sign In'}
-        </Text>
-      </TouchableOpacity>
+        loading={loading}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -106,23 +89,5 @@ const styles = StyleSheet.create({
   form: {
     gap: spacing.md,
     marginBottom: spacing.xxl,
-  },
-  input: {
-    height: layout.inputHeight,
-    borderRadius: layout.borderRadius.md,
-    paddingHorizontal: spacing.lg,
-    fontSize: typography.fontSize.md,
-    borderWidth: 1,
-  },
-  button: {
-    height: layout.inputHeight,
-    borderRadius: layout.borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
   },
 });

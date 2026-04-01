@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../types';
 import { useThemeStore } from '../../stores';
 import { spacing, typography, layout } from '../../constants';
+import { Button } from '../../components/common';
 
 type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Welcome'>;
@@ -24,21 +25,15 @@ export default function WelcomeScreen({ navigation }: Props) {
       </View>
 
       <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: colors.accentLight }]}
+        <Button
+          title="Create Account"
           onPress={() => navigation.navigate('SignUp')}
-        >
-          <Text style={styles.buttonText}>Create Account</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.buttonOutline, { borderColor: colors.accentLight }]}
+        />
+        <Button
+          title="Sign In"
+          variant="outline"
           onPress={() => navigation.navigate('SignIn')}
-        >
-          <Text style={[styles.buttonOutlineText, { color: colors.accentLight }]}>
-            Sign In
-          </Text>
-        </TouchableOpacity>
+        />
       </View>
     </View>
   );
@@ -66,27 +61,5 @@ const styles = StyleSheet.create({
   footer: {
     gap: spacing.md,
     paddingBottom: spacing.xxxl,
-  },
-  button: {
-    height: layout.inputHeight,
-    borderRadius: layout.borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
-  },
-  buttonOutline: {
-    height: layout.inputHeight,
-    borderRadius: layout.borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.5,
-  },
-  buttonOutlineText: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
   },
 });

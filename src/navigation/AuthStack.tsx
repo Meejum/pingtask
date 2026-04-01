@@ -1,7 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../types';
-import { useThemeStore } from '../stores';
+import { useAuthStore, useThemeStore } from '../stores';
 
 import WelcomeScreen from '../screens/auth/WelcomeScreen';
 import SignUpScreen from '../screens/auth/SignUpScreen';
@@ -12,6 +12,7 @@ const Stack = createNativeStackNavigator<AuthStackParamList>();
 
 export default function AuthStack() {
   const colors = useThemeStore((s) => s.colors);
+  const needsProfile = useAuthStore((s) => s.needsProfile);
 
   return (
     <Stack.Navigator
@@ -22,26 +23,31 @@ export default function AuthStack() {
         contentStyle: { backgroundColor: colors.background },
       }}
     >
-      <Stack.Screen
-        name="Welcome"
-        component={WelcomeScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="SignUp"
-        component={SignUpScreen}
-        options={{ title: 'Sign Up' }}
-      />
-      <Stack.Screen
-        name="SignIn"
-        component={SignInScreen}
-        options={{ title: 'Sign In' }}
-      />
-      <Stack.Screen
-        name="SetProfile"
-        component={SetProfileScreen}
-        options={{ title: 'Set Up Profile', headerBackVisible: false }}
-      />
+      {needsProfile ? (
+        <Stack.Screen
+          name="SetProfile"
+          component={SetProfileScreen}
+          options={{ title: 'Set Up Profile', headerBackVisible: false }}
+        />
+      ) : (
+        <>
+          <Stack.Screen
+            name="Welcome"
+            component={WelcomeScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="SignUp"
+            component={SignUpScreen}
+            options={{ title: 'Sign Up' }}
+          />
+          <Stack.Screen
+            name="SignIn"
+            component={SignInScreen}
+            options={{ title: 'Sign In' }}
+          />
+        </>
+      )}
     </Stack.Navigator>
   );
 }
