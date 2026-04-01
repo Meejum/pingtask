@@ -263,6 +263,16 @@ export async function markConversationRead(
   });
 }
 
+// Disappearing messages — set timer for a conversation
+export async function setDisappearingTimer(
+  conversationId: string,
+  seconds: number | null,
+): Promise<void> {
+  await updateDoc(doc(db, 'conversations', conversationId), {
+    disappearingSeconds: seconds,
+  });
+}
+
 // Typing indicator
 export async function setTyping(
   conversationId: string,

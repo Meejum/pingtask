@@ -5,6 +5,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { ChatStackParamList, Conversation, Participant } from '../../types';
+import { setDisappearingTimer } from '../../services/chatService';
 import { useThemeStore, useAuthStore } from '../../stores';
 import { spacing, typography, layout } from '../../constants';
 import { Avatar, LoadingScreen } from '../../components/common';
@@ -105,6 +106,40 @@ export default function ChatInfoScreen({ route, navigation }: Props) {
           </View>
         </>
       )}
+
+      {/* Disappearing Messages */}
+      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+        Disappearing Messages
+      </Text>
+      <View style={[styles.section, { backgroundColor: colors.surface }]}>
+        {[
+          { label: 'Off', value: null },
+          { label: '5 seconds', value: 5 },
+          { label: '30 seconds', value: 30 },
+          { label: '5 minutes', value: 300 },
+          { label: '1 hour', value: 3600 },
+          { label: '24 hours', value: 86400 },
+        ].map((opt, i) => {
+          const currentTimer = (convo as any).disappearingSeconds ?? null;
+          const isActive = currentTimer === opt.value;
+          return (
+            <TouchableOpacity
+              key={opt.label}
+              style={[styles.memberRow, { borderBottomColor: colors.borderLight }]}
+              onPress={() => setDisappearingTimer(conversationId, opt.value)}
+              activeOpacity={0.6}
+            >
+              <Ionicons
+                name={opt.value ? 'timer-outline' : 'infinite-outline'}
+                size={20}
+                color={isActive ? colors.accentLight : colors.textTertiary}
+              />
+              <Text style={[styles.memberName, { color: colors.text, flex: 1 }]}>{opt.label}</Text>
+              {isActive && <Ionicons name="checkmark" size={20} color={colors.accentLight} />}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
 
       {/* Danger Zone */}
       <View style={[styles.section, { backgroundColor: colors.surface, marginTop: spacing.lg }]}>

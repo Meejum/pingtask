@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { useAuthStore, useThemeStore } from '../stores';
 import { subscribeToAuth } from '../services/authService';
+import { startPresenceTracking, stopPresenceTracking } from '../services/presenceService';
 import { LoadingScreen } from '../components/common';
 
 import AuthStack from './AuthStack';
@@ -16,11 +17,18 @@ export default function RootNavigator() {
 
   useEffect(() => {
     const unsubscribe = subscribeToAuth(
-      (user) => setUser(user),
+      (user) => {
+        setUser(user);
+        if (user?.uid) startPresenceTracking(user.uid);
+        else stopPresenceTracking();
+      },
       (_uid) => setNeedsProfile(true),
       (loading) => setLoading(loading),
     );
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      stopPresenceTracking();
+    };
   }, [setUser, setNeedsProfile, setLoading]);
 
   if (isLoading) {

@@ -22,6 +22,8 @@ import {
   setTyping,
 } from '../../services/chatService';
 import { spacing, typography, layout } from '../../constants';
+import MessageActionMenu from '../../components/chat/MessageActionMenu';
+import TypingIndicator from '../../components/chat/TypingIndicator';
 
 type Props = NativeStackScreenProps<ChatStackParamList, 'ChatRoom'>;
 
@@ -62,6 +64,9 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
   const { currentMessages, setCurrentMessages } = useChatStore();
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [selectedMsg, setSelectedMsg] = useState<Message | null>(null);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const typingTimeout = useRef<ReturnType<typeof setTimeout>>();
 
@@ -126,11 +131,32 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
     }, 3000);
   };
 
+  // Get typing users for this conversation
+  const getTypingNames = (): string[] => {
+    const convo = useChatStore.getState().conversations.find((c) => c.id === conversationId);
+    if (!convo?.typing || !user?.uid) return [];
+    return Object.entries(convo.typing)
+      .filter(([uid, isTyping]) => uid !== user.uid && isTyping)
+      .map(([uid]) => convo.participants[uid]?.displayName || 'Someone');
+  };
+
+  const typingNames = getTypingNames();
+
   const renderMessage = ({ item: msg }: { item: Message }) => {
     const isMine = msg.senderId === user?.uid;
 
     return (
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onLongPress={() => {
+          setSelectedMsg(msg);
+          setMenuVisible(true);
+        }}
+        delayLongPress={400}
+      >
       <View style={[styles.bubbleRow, isMine ? styles.bubbleRowRight : styles.bubbleRowLeft]}>
+        {/* Reply preview */}
+        {replyTo && msg.id === currentMessages[currentMessages.length - 1]?.id && null}
         <View
           style={[
             styles.bubble,
@@ -155,6 +181,7 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
           </View>
         </View>
       </View>
+      </TouchableOpacity>
     );
   };
 
@@ -170,6 +197,7 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
         keyExtractor={(item) => item.id}
         renderItem={renderMessage}
         contentContainerStyle={styles.messageList}
+        ListFooterComponent={<TypingIndicator names={typingNames} />}
         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
       />
 
@@ -183,6 +211,22 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
         </View>
       )}
 
+      {/* Reply bar */}
+      {replyTo && (
+        <View style={[styles.replyBar, { backgroundColor: colors.surfaceVariant }]}>
+          <View style={[styles.replyStripe, { backgroundColor: colors.accentLight }]} />
+          <View style={styles.replyContent}>
+            <Text style={[styles.replyName, { color: colors.accentLight }]}>{replyTo.senderName}</Text>
+            <Text style={[styles.replyText, { color: colors.textSecondary }]} numberOfLines={1}>
+              {replyTo.text}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={() => setReplyTo(null)}>
+            <Ionicons name="close" size={18} color={colors.textTertiary} />
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Input Area */}
       <View style={[styles.inputBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
         <TouchableOpacity style={styles.inputAction}>
@@ -190,7 +234,7 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
         </TouchableOpacity>
         <TextInput
           style={[styles.textInput, { backgroundColor: colors.inputBackground, color: colors.text }]}
-          placeholder="Type a message..."
+          placeholder={replyTo ? `Reply to ${replyTo.senderName}...` : 'Type a message...'}
           placeholderTextColor={colors.textTertiary}
           value={text}
           onChangeText={handleTextChange}
@@ -207,6 +251,27 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
           <Ionicons name="send" size={18} color={text.trim() ? '#FFFFFF' : colors.textTertiary} />
         </TouchableOpacity>
       </View>
+
+      {/* Message Action Menu */}
+      <MessageActionMenu
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
+        isMine={selectedMsg?.senderId === user?.uid}
+        onReply={() => {
+          if (selectedMsg) setReplyTo(selectedMsg);
+        }}
+        onCopy={() => {
+          if (selectedMsg?.text) {
+            try { navigator.clipboard.writeText(selectedMsg.text); } catch {}
+          }
+        }}
+        onForward={() => {
+          // TODO: forward to another conversation
+        }}
+        onDelete={() => {
+          // TODO: delete message from Firestore
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -257,6 +322,28 @@ const styles = StyleSheet.create({
   },
   timestamp: {
     fontSize: 10,
+  },
+  replyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+  },
+  replyStripe: {
+    width: 3,
+    height: '100%',
+    borderRadius: 2,
+  },
+  replyContent: {
+    flex: 1,
+  },
+  replyName: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  replyText: {
+    fontSize: typography.fontSize.sm,
   },
   e2eeBanner: {
     flexDirection: 'row',
