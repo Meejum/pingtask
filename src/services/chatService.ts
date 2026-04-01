@@ -16,6 +16,10 @@ import {
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { Conversation, Message } from '../types';
+import { encryptMessage, decryptMessage, fetchPublicKey, isEncrypted } from './cryptoService';
+
+// Cache public keys in memory
+const publicKeyCache: Record<string, string> = {};
 
 // Subscribe to user's conversations
 export function subscribeToConversations(
@@ -161,21 +165,46 @@ export async function createGroupConversation(
   return convoRef.id;
 }
 
-// Send a message
+// Send a message (encrypted for direct chats)
 export async function sendMessage(
   conversationId: string,
   senderId: string,
   senderName: string,
   text: string,
   mentions: any[] = [],
+  recipientUid?: string,
 ): Promise<string> {
+  let messageText = text;
+  let encrypted = false;
+
+  // Encrypt for direct chats if we have the recipient's public key
+  if (recipientUid) {
+    try {
+      let pubKey = publicKeyCache[recipientUid];
+      if (!pubKey) {
+        const fetched = await fetchPublicKey(recipientUid);
+        if (fetched) {
+          pubKey = fetched;
+          publicKeyCache[recipientUid] = pubKey;
+        }
+      }
+      if (pubKey) {
+        messageText = encryptMessage(text, pubKey);
+        encrypted = true;
+      }
+    } catch {
+      // Fall back to plaintext if encryption fails
+    }
+  }
+
   const msgRef = await addDoc(
     collection(db, `conversations/${conversationId}/messages`),
     {
       senderId,
       senderName,
       type: 'text',
-      text,
+      text: messageText,
+      encrypted,
       mediaUrl: null,
       mediaType: null,
       fileName: null,
@@ -191,6 +220,37 @@ export async function sendMessage(
   );
 
   return msgRef.id;
+}
+
+// Decrypt messages from a sender
+export async function decryptMessages(
+  messages: Message[],
+  currentUid: string,
+): Promise<Message[]> {
+  const decrypted: Message[] = [];
+
+  for (const msg of messages) {
+    if ((msg as any).encrypted && msg.text && msg.senderId !== currentUid) {
+      try {
+        let pubKey = publicKeyCache[msg.senderId];
+        if (!pubKey) {
+          const fetched = await fetchPublicKey(msg.senderId);
+          if (fetched) {
+            pubKey = fetched;
+            publicKeyCache[msg.senderId] = pubKey;
+          }
+        }
+        if (pubKey) {
+          const plaintext = decryptMessage(msg.text, pubKey);
+          decrypted.push({ ...msg, text: plaintext || '[Decryption failed]' });
+          continue;
+        }
+      } catch {}
+    }
+    decrypted.push(msg);
+  }
+
+  return decrypted;
 }
 
 // Mark messages as read / reset unread

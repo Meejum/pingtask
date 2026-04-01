@@ -17,6 +17,7 @@ import { useChatStore } from '../../stores/chatStore';
 import {
   subscribeToMessages,
   sendMessage,
+  decryptMessages,
   markConversationRead,
   setTyping,
 } from '../../services/chatService';
@@ -65,7 +66,15 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
   const typingTimeout = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
-    const unsub = subscribeToMessages(conversationId, setCurrentMessages);
+    const unsub = subscribeToMessages(conversationId, async (msgs) => {
+      // Decrypt E2EE messages
+      if (user?.uid) {
+        const decrypted = await decryptMessages(msgs, user.uid);
+        setCurrentMessages(decrypted);
+      } else {
+        setCurrentMessages(msgs);
+      }
+    });
     if (user?.uid) markConversationRead(conversationId, user.uid);
     return () => {
       unsub();
@@ -81,6 +90,13 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
     }
   }, [currentMessages.length]);
 
+  // Find the other participant for E2EE in direct chats
+  const getRecipientUid = useCallback((): string | undefined => {
+    const convo = useChatStore.getState().conversations.find((c) => c.id === conversationId);
+    if (!convo || convo.type !== 'direct' || !user?.uid) return undefined;
+    return convo.participantUids.find((uid) => uid !== user.uid);
+  }, [conversationId, user?.uid]);
+
   const handleSend = useCallback(async () => {
     const trimmed = text.trim();
     if (!trimmed || !user?.uid) return;
@@ -88,14 +104,15 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
     setText('');
     setSending(true);
     try {
-      await sendMessage(conversationId, user.uid, user.displayName, trimmed);
+      const recipientUid = getRecipientUid();
+      await sendMessage(conversationId, user.uid, user.displayName, trimmed, [], recipientUid);
       if (user.uid) setTyping(conversationId, user.uid, false);
     } catch (e: any) {
       setText(trimmed);
     } finally {
       setSending(false);
     }
-  }, [text, user, conversationId]);
+  }, [text, user, conversationId, getRecipientUid]);
 
   const handleTextChange = (val: string) => {
     setText(val);
@@ -155,6 +172,16 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
         contentContainerStyle={styles.messageList}
         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
       />
+
+      {/* E2EE indicator */}
+      {getRecipientUid() && (
+        <View style={[styles.e2eeBanner, { backgroundColor: colors.surfaceVariant }]}>
+          <Ionicons name="lock-closed" size={12} color={colors.success} />
+          <Text style={[styles.e2eeText, { color: colors.textTertiary }]}>
+            Messages are end-to-end encrypted
+          </Text>
+        </View>
+      )}
 
       {/* Input Area */}
       <View style={[styles.inputBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
@@ -229,6 +256,16 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   timestamp: {
+    fontSize: 10,
+  },
+  e2eeBanner: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+  },
+  e2eeText: {
     fontSize: 10,
   },
   inputBar: {

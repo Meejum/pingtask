@@ -25,6 +25,8 @@
     "react-native-svg": "~16.0.0",
     "react-native-qrcode-svg": "^6.3.2",
     "expo-image-picker": "~16.1.0",
+    "tweetnacl": "^1.0.3",
+    "tweetnacl-util": "^0.15.1",
     "react-native-screens": "~4.16.0",
     "zustand": "^5.0.12"
   },

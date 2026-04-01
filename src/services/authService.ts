@@ -8,6 +8,7 @@ import {
 import { doc, getDoc, setDoc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import { User } from '../types';
+import { generateKeyPair, loadKeyPair, publishPublicKey } from './cryptoService';
 
 const PIN_CHARSET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
 const PIN_LENGTH = 8;
@@ -34,6 +35,13 @@ export function subscribeToAuth(
     const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
     if (userDoc.exists()) {
       const userData = userDoc.data() as User;
+      // Ensure keypair exists for E2EE
+      if (!loadKeyPair()) {
+        const { publicKey } = generateKeyPair();
+        if (!userData.publicKey) {
+          await publishPublicKey(firebaseUser.uid, publicKey);
+        }
+      }
       if (userData.displayName) {
         onUser(userData);
         return;
@@ -82,6 +90,9 @@ export function subscribeToUserDoc(
     if (!existing.exists() || !existing.data().pin) {
       const pin = generatePinClient();
       const email = auth.currentUser?.email ?? null;
+      // Generate E2EE keypair for this user
+      const { publicKey } = generateKeyPair();
+
       await setDoc(userRef, {
         uid,
         pin,
@@ -92,6 +103,7 @@ export function subscribeToUserDoc(
         avatarUrl: null,
         status: 'available',
         statusMessage: '',
+        publicKey,
         fcmTokens: [],
         isOnline: true,
         lastSeen: serverTimestamp(),

@@ -13,6 +13,7 @@ import { useThemeStore, useAuthStore } from '../../stores';
 import { spacing, typography, layout, config } from '../../constants';
 import { Avatar, Button, Input } from '../../components/common';
 import { showAlert } from '../../utils/alert';
+import { pickImage, uploadAvatar } from '../../services/mediaService';
 import { UserStatus } from '../../types';
 
 const STATUS_OPTIONS: { value: UserStatus; label: string; color: string }[] = [
@@ -32,6 +33,8 @@ export default function EditProfileScreen() {
   const [statusMessage, setStatusMessage] = useState(user?.statusMessage || '');
   const [status, setStatus] = useState<UserStatus>(user?.status || 'available');
   const [saving, setSaving] = useState(false);
+  const [avatarUri, setAvatarUri] = useState(user?.avatarUrl || null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const hasChanges =
     displayName !== (user?.displayName || '') ||
@@ -78,15 +81,50 @@ export default function EditProfileScreen() {
     >
       {/* Avatar */}
       <View style={styles.avatarSection}>
-        <Avatar uri={user?.avatarUrl} name={displayName} size="xxl" />
-        <TouchableOpacity style={styles.cameraButton}>
+        <Avatar uri={avatarUri} name={displayName} size="xxl" />
+        <TouchableOpacity
+          style={styles.cameraButton}
+          onPress={async () => {
+            const uri = await pickImage();
+            if (!uri || !user?.uid) return;
+            setAvatarUri(uri);
+            setUploadingAvatar(true);
+            try {
+              const url = await uploadAvatar(user.uid, uri);
+              setAvatarUri(url);
+              setUser({ ...user, avatarUrl: url });
+            } catch (e: any) {
+              showAlert('Error', e.message);
+              setAvatarUri(user.avatarUrl);
+            } finally {
+              setUploadingAvatar(false);
+            }
+          }}
+        >
           <View style={[styles.cameraBadge, { backgroundColor: colors.accentLight }]}>
             <Ionicons name="camera" size={16} color="#FFFFFF" />
           </View>
         </TouchableOpacity>
-        <TouchableOpacity>
+        <TouchableOpacity
+          onPress={async () => {
+            const uri = await pickImage();
+            if (!uri || !user?.uid) return;
+            setAvatarUri(uri);
+            setUploadingAvatar(true);
+            try {
+              const url = await uploadAvatar(user.uid, uri);
+              setAvatarUri(url);
+              setUser({ ...user, avatarUrl: url });
+            } catch (e: any) {
+              showAlert('Error', e.message);
+              setAvatarUri(user.avatarUrl);
+            } finally {
+              setUploadingAvatar(false);
+            }
+          }}
+        >
           <Text style={[styles.changePhotoText, { color: colors.accentLight }]}>
-            Change Photo
+            {uploadingAvatar ? 'Uploading...' : 'Change Photo'}
           </Text>
         </TouchableOpacity>
       </View>
