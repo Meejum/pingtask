@@ -36,11 +36,12 @@ export function subscribeToAuth(
     if (userDoc.exists()) {
       const userData = userDoc.data() as User;
       // Ensure keypair exists for E2EE
+      // IMPORTANT: If no private key on this device, generate new keypair
+      // and ALWAYS publish the new public key — the private key here must
+      // match the public key in Firestore for decryption to work
       if (!loadKeyPair()) {
         const { publicKey } = generateKeyPair();
-        if (!userData.publicKey) {
-          await publishPublicKey(firebaseUser.uid, publicKey);
-        }
+        await publishPublicKey(firebaseUser.uid, publicKey);
       }
       // Ensure PIN lookup doc exists (fixes users created before this was added)
       if (userData.pin) {

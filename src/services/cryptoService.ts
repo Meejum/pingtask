@@ -133,10 +133,29 @@ export async function encryptMessage(
 }
 
 /**
- * Decrypt a message using the shared secret with the sender.
- * Both parties derive the same shared secret, so this works for both.
+ * Decrypt a message using the shared secret with the other user.
+ * If decryption fails, retry with a fresh public key from Firestore
+ * (in case the other user regenerated their keypair).
  */
 export async function decryptMessage(
+  encryptedB64: string,
+  otherUid: string,
+): Promise<string | null> {
+  // Try with cached key first
+  const result = await tryDecrypt(encryptedB64, otherUid);
+  if (result) return result;
+
+  // Cache might be stale — clear and retry with fresh key from Firestore
+  delete publicKeyCache[otherUid];
+  // Also clear shared secret cache for this user's key
+  for (const key of Object.keys(sharedSecretCache)) {
+    delete sharedSecretCache[key];
+  }
+
+  return tryDecrypt(encryptedB64, otherUid);
+}
+
+async function tryDecrypt(
   encryptedB64: string,
   otherUid: string,
 ): Promise<string | null> {
