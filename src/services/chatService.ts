@@ -16,10 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { Conversation, Message } from '../types';
-import { encryptMessage, decryptMessage, fetchPublicKey, isEncrypted } from './cryptoService';
-
-// Cache public keys in memory
-const publicKeyCache: Record<string, string> = {};
+import { encryptMessage, decryptMessage, fetchPublicKey } from './cryptoService';
 
 // Subscribe to user's conversations
 export function subscribeToConversations(
@@ -166,6 +163,8 @@ export async function createGroupConversation(
 }
 
 // Send a message (encrypted for direct chats)
+// Stores TWO encrypted copies: one for sender, one for recipient
+// Each user decrypts the copy encrypted for them
 export async function sendMessage(
   conversationId: string,
   senderId: string,
@@ -174,83 +173,84 @@ export async function sendMessage(
   mentions: any[] = [],
   recipientUid?: string,
 ): Promise<string> {
-  let messageText = text;
-  let encrypted = false;
+  const msgData: Record<string, any> = {
+    senderId,
+    senderName,
+    type: 'text',
+    text, // plaintext fallback (used for groups or if encryption fails)
+    encrypted: false,
+    encryptedTexts: null, // { [uid]: ciphertext } — per-user encrypted copies
+    mediaUrl: null,
+    mediaType: null,
+    fileName: null,
+    fileSize: null,
+    thumbnailUrl: null,
+    mentions,
+    deliveryStatus: {},
+    aggregateStatus: 'sent',
+    createdAt: serverTimestamp(),
+    editedAt: null,
+    isDeleted: false,
+  };
 
-  // Encrypt for direct chats if we have the recipient's public key
+  // Encrypt for direct chats
   if (recipientUid) {
     try {
-      let pubKey = publicKeyCache[recipientUid];
-      if (!pubKey) {
-        const fetched = await fetchPublicKey(recipientUid);
-        if (fetched) {
-          pubKey = fetched;
-          publicKeyCache[recipientUid] = pubKey;
-        }
-      }
-      if (pubKey) {
-        messageText = encryptMessage(text, pubKey);
-        encrypted = true;
+      const result = await encryptMessage(text, senderId, recipientUid);
+      if (result) {
+        msgData.encrypted = true;
+        msgData.encryptedTexts = {
+          [senderId]: result.forSender,
+          [recipientUid]: result.forRecipient,
+        };
+        msgData.text = '[Encrypted]'; // Server never stores plaintext
       }
     } catch {
-      // Fall back to plaintext if encryption fails
+      // Fall back to plaintext
     }
   }
 
   const msgRef = await addDoc(
     collection(db, `conversations/${conversationId}/messages`),
-    {
-      senderId,
-      senderName,
-      type: 'text',
-      text: messageText,
-      encrypted,
-      mediaUrl: null,
-      mediaType: null,
-      fileName: null,
-      fileSize: null,
-      thumbnailUrl: null,
-      mentions,
-      deliveryStatus: {},
-      aggregateStatus: 'sent',
-      createdAt: serverTimestamp(),
-      editedAt: null,
-      isDeleted: false,
-    },
+    msgData,
   );
 
   return msgRef.id;
 }
 
-// Decrypt messages from a sender
+// Decrypt messages — each user decrypts their own copy
 export async function decryptMessages(
   messages: Message[],
   currentUid: string,
 ): Promise<Message[]> {
-  const decrypted: Message[] = [];
+  const result: Message[] = [];
 
   for (const msg of messages) {
-    if ((msg as any).encrypted && msg.text && msg.senderId !== currentUid) {
+    const raw = msg as any;
+
+    // Check if message has per-user encrypted copies
+    if (raw.encrypted && raw.encryptedTexts && raw.encryptedTexts[currentUid]) {
       try {
-        let pubKey = publicKeyCache[msg.senderId];
-        if (!pubKey) {
-          const fetched = await fetchPublicKey(msg.senderId);
-          if (fetched) {
-            pubKey = fetched;
-            publicKeyCache[msg.senderId] = pubKey;
+        // Find who encrypted this message (the sender)
+        const senderPubKey = await fetchPublicKey(raw.senderId);
+        if (senderPubKey) {
+          const plaintext = decryptMessage(raw.encryptedTexts[currentUid], senderPubKey);
+          if (plaintext) {
+            result.push({ ...msg, text: plaintext });
+            continue;
           }
         }
-        if (pubKey) {
-          const plaintext = decryptMessage(msg.text, pubKey);
-          decrypted.push({ ...msg, text: plaintext || '[Decryption failed]' });
-          continue;
-        }
       } catch {}
+      // Decryption failed
+      result.push({ ...msg, text: '[Decryption failed]' });
+      continue;
     }
-    decrypted.push(msg);
+
+    // Not encrypted or no copy for this user — use plaintext
+    result.push(msg);
   }
 
-  return decrypted;
+  return result;
 }
 
 // Mark messages as read / reset unread

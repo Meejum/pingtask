@@ -1,11 +1,14 @@
 /**
  * E2EE using tweetnacl (NaCl box = Curve25519 + XSalsa20 + Poly1305)
  *
- * Flow:
- * 1. On signup: generate keypair, store private key locally, publish public key to Firestore
- * 2. On contact add: fetch their public key
- * 3. On send: encrypt(message, sharedSecret(myPrivate, theirPublic))
- * 4. On receive: decrypt(ciphertext, sharedSecret(myPrivate, theirPublic))
+ * Architecture:
+ * - Each user has a Curve25519 keypair (public + private)
+ * - Private key stored only on device (localStorage for web, expo-secure-store for native)
+ * - Public key published to Firestore user doc
+ * - Messages stored with TWO encrypted copies:
+ *   - encryptedForSender: encrypted with sender's own public key (so sender can re-read)
+ *   - encryptedForRecipient: encrypted with recipient's public key
+ * - Each user decrypts the copy encrypted for them
  */
 
 import nacl from 'tweetnacl';
@@ -20,12 +23,13 @@ import { db } from '../config/firebase';
 
 const PRIVATE_KEY_STORAGE_KEY = 'pingtask_private_key';
 
-// In-memory cache (in production, use expo-secure-store)
 let cachedKeyPair: nacl.BoxKeyPair | null = null;
+
+// Public key cache to avoid repeated Firestore reads
+const publicKeyCache: Record<string, string> = {};
 
 /**
  * Generate a new keypair and store it.
- * Returns base64-encoded public key.
  */
 export function generateKeyPair(): { publicKey: string; privateKey: string } {
   const keyPair = nacl.box.keyPair();
@@ -34,7 +38,6 @@ export function generateKeyPair(): { publicKey: string; privateKey: string } {
   const pub = encodeBase64(keyPair.publicKey);
   const priv = encodeBase64(keyPair.secretKey);
 
-  // Store private key (in production, use expo-secure-store)
   try {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(PRIVATE_KEY_STORAGE_KEY, priv);
@@ -66,26 +69,39 @@ export function loadKeyPair(): nacl.BoxKeyPair | null {
 }
 
 /**
+ * Get my own public key (base64 encoded).
+ */
+export function getMyPublicKey(): string | null {
+  const kp = loadKeyPair();
+  if (!kp) return null;
+  return encodeBase64(kp.publicKey);
+}
+
+/**
  * Publish user's public key to Firestore.
  */
 export async function publishPublicKey(uid: string, publicKey: string): Promise<void> {
   await updateDoc(doc(db, 'users', uid), { publicKey });
+  publicKeyCache[uid] = publicKey;
 }
 
 /**
- * Fetch another user's public key.
+ * Fetch a user's public key (cached).
  */
 export async function fetchPublicKey(uid: string): Promise<string | null> {
+  if (publicKeyCache[uid]) return publicKeyCache[uid];
+
   const d = await getDoc(doc(db, 'users', uid));
   if (!d.exists()) return null;
-  return d.data().publicKey || null;
+  const pk = d.data().publicKey || null;
+  if (pk) publicKeyCache[uid] = pk;
+  return pk;
 }
 
 /**
- * Encrypt a message for a recipient.
- * Returns base64-encoded { nonce + ciphertext }.
+ * Encrypt a plaintext message for a specific public key.
  */
-export function encryptMessage(
+export function encryptFor(
   plaintext: string,
   recipientPublicKeyB64: string,
 ): string {
@@ -99,7 +115,6 @@ export function encryptMessage(
   const encrypted = nacl.box(messageBytes, nonce, recipientPub, keyPair.secretKey);
   if (!encrypted) throw new Error('Encryption failed');
 
-  // Combine nonce + ciphertext
   const combined = new Uint8Array(nonce.length + encrypted.length);
   combined.set(nonce);
   combined.set(encrypted, nonce.length);
@@ -108,7 +123,27 @@ export function encryptMessage(
 }
 
 /**
- * Decrypt a message from a sender.
+ * Encrypt a message for BOTH sender and recipient.
+ * Returns two ciphertexts so each party can read the message.
+ */
+export async function encryptMessage(
+  plaintext: string,
+  senderUid: string,
+  recipientUid: string,
+): Promise<{ forSender: string; forRecipient: string } | null> {
+  const myPubKey = getMyPublicKey();
+  const theirPubKey = await fetchPublicKey(recipientUid);
+
+  if (!myPubKey || !theirPubKey) return null;
+
+  return {
+    forSender: encryptFor(plaintext, myPubKey),
+    forRecipient: encryptFor(plaintext, theirPubKey),
+  };
+}
+
+/**
+ * Decrypt a message that was encrypted for me.
  */
 export function decryptMessage(
   encryptedB64: string,
@@ -129,17 +164,5 @@ export function decryptMessage(
     return encodeUTF8(decrypted);
   } catch {
     return null;
-  }
-}
-
-/**
- * Check if a message string is encrypted (base64 with sufficient length).
- */
-export function isEncrypted(text: string): boolean {
-  try {
-    const bytes = decodeBase64(text);
-    return bytes.length > nacl.box.nonceLength + nacl.box.macLength;
-  } catch {
-    return false;
   }
 }
