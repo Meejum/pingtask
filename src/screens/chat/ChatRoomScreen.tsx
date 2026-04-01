@@ -294,10 +294,10 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
           placeholderTextColor={colors.textTertiary}
           value={text}
           onChangeText={handleTextChange}
-          multiline
           maxLength={2000}
           onSubmitEditing={handleSend}
           blurOnSubmit={false}
+          returnKeyType="send"
         />
         {text.trim() ? (
           <TouchableOpacity
