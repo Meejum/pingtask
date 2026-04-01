@@ -79,6 +79,7 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
   const [menuVisible, setMenuVisible] = useState(false);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [reactionMsg, setReactionMsg] = useState<Message | null>(null);
+  const lastTapRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
   const flatListRef = useRef<FlatList>(null);
   const typingTimeout = useRef<ReturnType<typeof setTimeout>>();
 
@@ -163,6 +164,15 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
         onLongPress={() => {
           setSelectedMsg(msg);
           setMenuVisible(true);
+        }}
+        onPress={() => {
+          const now = Date.now();
+          if (lastTapRef.current.id === msg.id && now - lastTapRef.current.time < 300) {
+            setReactionMsg(msg);
+            lastTapRef.current = { id: '', time: 0 };
+          } else {
+            lastTapRef.current = { id: msg.id, time: now };
+          }
         }}
         delayLongPress={400}
       >

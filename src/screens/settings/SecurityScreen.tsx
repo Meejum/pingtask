@@ -40,7 +40,7 @@ export default function SecurityScreen() {
       }
       if (uid) {
         const settings = await loadSettings(uid);
-        setBiometricLock(!!(settings as any).biometricLock);
+        setBiometricLock(!!settings.biometricLock);
       }
     })();
   }, [uid]);
@@ -169,7 +169,7 @@ export default function SecurityScreen() {
                 return;
               }
               setBiometricLock(val);
-              if (uid) saveSettings(uid, { biometricLock: val } as any);
+              if (uid) saveSettings(uid, { biometricLock: val });
             }}
             trackColor={{ true: colors.accentLight, false: colors.surfaceVariant }}
             disabled={!biometricAvailable}

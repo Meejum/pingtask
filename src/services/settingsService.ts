@@ -15,6 +15,8 @@ export interface UserSettings {
   statusVisibility: 'everyone' | 'contacts' | 'nobody';
   readReceipts: boolean;
   typingIndicator: boolean;
+  // Security
+  biometricLock: boolean;
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -29,6 +31,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   statusVisibility: 'contacts',
   readReceipts: true,
   typingIndicator: true,
+  biometricLock: false,
 };
 
 export async function loadSettings(uid: string): Promise<UserSettings> {

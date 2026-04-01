@@ -74,7 +74,7 @@ export default function App() {
       if (!available) return;
 
       const settings = await loadSettings(uid);
-      if ((settings as any).biometricLock) {
+      if (settings.biometricLock) {
         setBiometricEnabled(true);
         const type = await getBiometricType();
         setBiometricType(type);
