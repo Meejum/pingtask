@@ -8,6 +8,7 @@ import { db } from '../../config/firebase';
 import { ContactStackParamList, User } from '../../types';
 import { useThemeStore, useAuthStore } from '../../stores';
 import { removeContact } from '../../services/contactService';
+import { getOrCreateDirectConversation } from '../../services/chatService';
 import { spacing, typography, layout } from '../../constants';
 import { Avatar, Button, LoadingScreen } from '../../components/common';
 import { showAlert } from '../../utils/alert';
@@ -108,7 +109,21 @@ export default function ContactProfileScreen({ navigation, route }: Props) {
       </View>
 
       <View style={[styles.section, { backgroundColor: colors.surface }]}>
-        <TouchableOpacity style={styles.actionRow} activeOpacity={0.6}>
+        <TouchableOpacity
+          style={styles.actionRow}
+          activeOpacity={0.6}
+          onPress={async () => {
+            if (!currentUser || !profile) return;
+            const convoId = await getOrCreateDirectConversation(
+              currentUser.uid, currentUser.displayName, currentUser.avatarUrl,
+              profile.uid, profile.displayName, profile.avatarUrl,
+            );
+            navigation.getParent()?.navigate('ChatTab', {
+              screen: 'ChatRoom',
+              params: { conversationId: convoId, title: profile.displayName },
+            });
+          }}
+        >
           <Ionicons name="chatbubble-outline" size={20} color={colors.accentLight} />
           <Text style={[styles.actionLabel, { color: colors.text }]}>Send Message</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />

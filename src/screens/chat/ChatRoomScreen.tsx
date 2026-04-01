@@ -24,6 +24,23 @@ import { spacing, typography, layout } from '../../constants';
 
 type Props = NativeStackScreenProps<ChatStackParamList, 'ChatRoom'>;
 
+// Set up header button to navigate to ChatInfo
+function useHeaderRight(navigation: Props['navigation'], conversationId: string) {
+  const colors = useThemeStore((s) => s.colors);
+  React.useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={() => navigation.navigate('ChatInfo', { conversationId })}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="information-circle-outline" size={24} color={colors.text} />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, conversationId, colors.text]);
+}
+
 function formatMsgTime(timestamp: any): string {
   if (!timestamp?.toDate) return '';
   return timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -36,8 +53,9 @@ function StatusIcon({ status, color }: { status: string; color: string }) {
   return <Ionicons name="time-outline" size={12} color={color} />;
 }
 
-export default function ChatRoomScreen({ route }: Props) {
+export default function ChatRoomScreen({ route, navigation }: Props) {
   const { conversationId } = route.params;
+  useHeaderRight(navigation, conversationId);
   const colors = useThemeStore((s) => s.colors);
   const user = useAuthStore((s) => s.user);
   const { currentMessages, setCurrentMessages } = useChatStore();

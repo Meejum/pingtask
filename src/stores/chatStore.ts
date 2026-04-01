@@ -8,7 +8,7 @@ interface ChatState {
   setConversations: (convos: Conversation[]) => void;
   setCurrentMessages: (msgs: Message[]) => void;
   setLoading: (loading: boolean) => void;
-  getUnreadTotal: () => number;
+  getUnreadTotal: (uid: string) => number;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -18,8 +18,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setConversations: (conversations) => set({ conversations, isLoading: false }),
   setCurrentMessages: (currentMessages) => set({ currentMessages }),
   setLoading: (isLoading) => set({ isLoading }),
-  getUnreadTotal: () => {
-    // Needs uid passed in via component — use selector instead
-    return 0;
+  getUnreadTotal: (uid: string) => {
+    return get().conversations.reduce((total, convo) => {
+      return total + (convo.unreadCount?.[uid] || 0);
+    }, 0);
   },
 }));
