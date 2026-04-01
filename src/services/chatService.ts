@@ -263,6 +263,32 @@ export async function markConversationRead(
   });
 }
 
+// React to a message
+export async function toggleReaction(
+  conversationId: string,
+  messageId: string,
+  uid: string,
+  emoji: string,
+): Promise<void> {
+  const msgRef = doc(db, `conversations/${conversationId}/messages`, messageId);
+  const msgDoc = await getDoc(msgRef);
+  if (!msgDoc.exists()) return;
+
+  const reactions: Record<string, string[]> = msgDoc.data().reactions || {};
+  const uids = reactions[emoji] || [];
+
+  if (uids.includes(uid)) {
+    // Remove reaction
+    reactions[emoji] = uids.filter((u) => u !== uid);
+    if (reactions[emoji].length === 0) delete reactions[emoji];
+  } else {
+    // Add reaction
+    reactions[emoji] = [...uids, uid];
+  }
+
+  await updateDoc(msgRef, { reactions });
+}
+
 // Disappearing messages — set timer for a conversation
 export async function setDisappearingTimer(
   conversationId: string,

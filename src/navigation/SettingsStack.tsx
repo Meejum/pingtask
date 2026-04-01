@@ -13,6 +13,7 @@ import NotificationsScreen from '../screens/settings/NotificationsScreen';
 import PrivacyScreen from '../screens/settings/PrivacyScreen';
 import HelpSupportScreen from '../screens/settings/HelpSupportScreen';
 import AboutScreen from '../screens/settings/AboutScreen';
+import PrivacyPolicyScreen from '../screens/settings/PrivacyPolicyScreen';
 
 const Stack = createNativeStackNavigator<SettingsStackParamList>();
 
@@ -37,6 +38,7 @@ export default function SettingsStack() {
       <Stack.Screen name="Privacy" component={PrivacyScreen} options={{ title: 'Privacy' }} />
       <Stack.Screen name="HelpSupport" component={HelpSupportScreen} options={{ title: 'Help & Support' }} />
       <Stack.Screen name="About" component={AboutScreen} options={{ title: 'About' }} />
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ title: 'Privacy Policy' }} />
     </Stack.Navigator>
   );
 }

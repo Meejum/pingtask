@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import { useThemeStore } from '../../stores';
 import { spacing, typography, layout } from '../../constants';
 import { Button, Input } from '../../components/common';
 import { showAlert } from '../../utils/alert';
+import { isBiometricAvailable, getBiometricType } from '../../services/biometricService';
+import { loadSettings, saveSettings } from '../../services/settingsService';
 
 export default function SecurityScreen() {
   const colors = useThemeStore((s) => s.colors);
@@ -23,6 +25,25 @@ export default function SecurityScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricLock, setBiometricLock] = useState(false);
+  const [biometricType, setBiometricType] = useState('Biometric');
+  const uid = auth.currentUser?.uid;
+
+  useEffect(() => {
+    (async () => {
+      const available = await isBiometricAvailable();
+      setBiometricAvailable(available);
+      if (available) {
+        const type = await getBiometricType();
+        setBiometricType(type);
+      }
+      if (uid) {
+        const settings = await loadSettings(uid);
+        setBiometricLock(!!(settings as any).biometricLock);
+      }
+    })();
+  }, [uid]);
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword) {
@@ -123,6 +144,37 @@ export default function SecurityScreen() {
             </View>
           </View>
         )}
+      </View>
+
+      {/* Biometric Lock */}
+      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>App Lock</Text>
+      <View style={[styles.section, { backgroundColor: colors.surface }]}>
+        <View style={styles.item}>
+          <Ionicons name="finger-print-outline" size={20} color={colors.text} />
+          <View style={styles.itemContent}>
+            <Text style={[styles.itemLabel, { color: colors.text }]}>
+              {biometricType} Lock
+            </Text>
+            <Text style={[styles.itemSub, { color: colors.textTertiary }]}>
+              {biometricAvailable
+                ? 'Require authentication when opening the app'
+                : 'Not available on this device'}
+            </Text>
+          </View>
+          <Switch
+            value={biometricLock}
+            onValueChange={(val) => {
+              if (!biometricAvailable) {
+                showAlert('Not Available', 'Biometric authentication is not set up on this device');
+                return;
+              }
+              setBiometricLock(val);
+              if (uid) saveSettings(uid, { biometricLock: val } as any);
+            }}
+            trackColor={{ true: colors.accentLight, false: colors.surfaceVariant }}
+            disabled={!biometricAvailable}
+          />
+        </View>
       </View>
 
       {/* Two-Factor Authentication */}

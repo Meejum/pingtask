@@ -48,4 +48,5 @@ export type SettingsStackParamList = {
   Privacy: undefined;
   HelpSupport: undefined;
   About: undefined;
+  PrivacyPolicy: undefined;
 };

@@ -24,6 +24,9 @@ import {
 import { spacing, typography, layout } from '../../constants';
 import MessageActionMenu from '../../components/chat/MessageActionMenu';
 import TypingIndicator from '../../components/chat/TypingIndicator';
+import ReactionPicker, { ReactionBubbles } from '../../components/chat/ReactionPicker';
+import LinkPreview, { extractUrls } from '../../components/chat/LinkPreview';
+import { toggleReaction } from '../../services/chatService';
 
 type Props = NativeStackScreenProps<ChatStackParamList, 'ChatRoom'>;
 
@@ -67,6 +70,7 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
   const [selectedMsg, setSelectedMsg] = useState<Message | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const [reactionMsg, setReactionMsg] = useState<Message | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const typingTimeout = useRef<ReturnType<typeof setTimeout>>();
 
@@ -171,6 +175,19 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
             </Text>
           )}
           <Text style={[styles.messageText, { color: colors.text }]}>{msg.text}</Text>
+          {/* Link previews */}
+          {msg.text && extractUrls(msg.text).slice(0, 1).map((url) => (
+            <LinkPreview key={url} url={url} />
+          ))}
+          {/* Reactions */}
+          {(msg as any).reactions && (
+            <ReactionBubbles
+              reactions={(msg as any).reactions}
+              onPress={(emoji) => {
+                if (user?.uid) toggleReaction(conversationId, msg.id, user.uid, emoji);
+              }}
+            />
+          )}
           <View style={styles.metaRow}>
             <Text style={[styles.timestamp, { color: colors.textTertiary }]}>
               {formatMsgTime(msg.createdAt)}
@@ -270,6 +287,17 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
         }}
         onDelete={() => {
           // TODO: delete message from Firestore
+        }}
+      />
+
+      {/* Reaction Picker */}
+      <ReactionPicker
+        visible={!!reactionMsg}
+        onClose={() => setReactionMsg(null)}
+        onReact={(emoji) => {
+          if (reactionMsg && user?.uid) {
+            toggleReaction(conversationId, reactionMsg.id, user.uid, emoji);
+          }
         }}
       />
     </KeyboardAvoidingView>

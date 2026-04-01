@@ -1,11 +1,17 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { SettingsStackParamList } from '../../types';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../stores';
 import { spacing, typography, layout } from '../../constants';
 import { showAlert } from '../../utils/alert';
 
-export default function AboutScreen() {
+type Props = {
+  navigation: NativeStackNavigationProp<SettingsStackParamList, 'About'>;
+};
+
+export default function AboutScreen({ navigation }: Props) {
   const colors = useThemeStore((s) => s.colors);
 
   const openLink = (url: string) => {
@@ -45,7 +51,7 @@ export default function AboutScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.item, { borderBottomColor: colors.borderLight }]}
-          onPress={() => showAlert('Privacy Policy', 'Privacy Policy will be available at launch.')}
+          onPress={() => navigation.navigate('PrivacyPolicy')}
           activeOpacity={0.6}
         >
           <Ionicons name="shield-outline" size={20} color={colors.text} />
