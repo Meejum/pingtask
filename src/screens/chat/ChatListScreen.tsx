@@ -12,7 +12,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ChatStackParamList, Conversation } from '../../types';
 import { useThemeStore, useAuthStore } from '../../stores';
 import { useChatStore } from '../../stores/chatStore';
-import { subscribeToConversations } from '../../services/chatService';
+import { subscribeToConversations, markMessagesDelivered } from '../../services/chatService';
 import { spacing, typography, layout } from '../../constants';
 import { Avatar } from '../../components/common';
 
@@ -42,7 +42,14 @@ export default function ChatListScreen({ navigation }: Props) {
 
   useEffect(() => {
     if (!user?.uid) return;
-    const unsub = subscribeToConversations(user.uid, setConversations);
+    const unsub = subscribeToConversations(user.uid, (convos) => {
+      setConversations(convos);
+      // Mark messages as delivered for all conversations
+      convos.forEach((c) => {
+        const unread = c.unreadCount?.[user.uid] || 0;
+        if (unread > 0) markMessagesDelivered(c.id, user.uid);
+      });
+    });
     return unsub;
   }, [user?.uid, setConversations]);
 

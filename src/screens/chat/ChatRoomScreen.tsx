@@ -35,6 +35,8 @@ import {
 import { uploadVoiceNote } from '../../services/voiceService';
 import VoiceNoteButton from '../../components/chat/VoiceNoteButton';
 import VoiceNoteBubble from '../../components/chat/VoiceNoteBubble';
+import DateSeparator, { formatMessageDate } from '../../components/chat/DateSeparator';
+import ScrollToBottomBtn from '../../components/chat/ScrollToBottom';
 
 type Props = NativeStackScreenProps<ChatStackParamList, 'ChatRoom'>;
 
@@ -80,6 +82,7 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [reactionMsg, setReactionMsg] = useState<Message | null>(null);
   const lastTapRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const typingTimeout = useRef<ReturnType<typeof setTimeout>>();
 
@@ -245,10 +248,41 @@ export default function ChatRoomScreen({ route, navigation }: Props) {
         ref={flatListRef}
         data={currentMessages}
         keyExtractor={(item) => item.id}
-        renderItem={renderMessage}
+        renderItem={({ item, index }) => {
+          // Date separator logic
+          let showDate = false;
+          if (index === 0) {
+            showDate = true;
+          } else {
+            const prev = currentMessages[index - 1];
+            const prevDate = formatMessageDate(prev.createdAt);
+            const currDate = formatMessageDate(item.createdAt);
+            showDate = prevDate !== currDate;
+          }
+
+          return (
+            <>
+              {showDate && <DateSeparator date={formatMessageDate(item.createdAt)} />}
+              {renderMessage({ item } as any)}
+            </>
+          );
+        }}
         contentContainerStyle={styles.messageList}
         ListFooterComponent={<TypingIndicator names={typingNames} />}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+        onScroll={(e) => {
+          const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+          const distanceFromBottom = contentSize.height - contentOffset.y - layoutMeasurement.height;
+          setShowScrollBtn(distanceFromBottom > 200);
+        }}
+        scrollEventThrottle={100}
+        onContentSizeChange={() => {
+          if (!showScrollBtn) flatListRef.current?.scrollToEnd({ animated: false });
+        }}
+      />
+
+      <ScrollToBottomBtn
+        visible={showScrollBtn}
+        onPress={() => flatListRef.current?.scrollToEnd({ animated: true })}
       />
 
       {/* E2EE indicator */}

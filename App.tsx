@@ -7,6 +7,7 @@ import RootNavigator from './src/navigation/RootNavigator';
 import { useThemeStore, useAuthStore } from './src/stores';
 import ErrorBoundary from './src/components/common/ErrorBoundary';
 import LockScreen from './src/components/common/LockScreen';
+import WebContainer from './src/components/common/WebContainer';
 import OnboardingScreen from './src/screens/auth/OnboardingScreen';
 import {
   isBiometricAvailable,
@@ -126,12 +127,14 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <SafeAreaProvider>
-        <NavigationContainer linking={linking}>
-          <RootNavigator />
-          <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
-        </NavigationContainer>
-      </SafeAreaProvider>
+      <WebContainer>
+        <SafeAreaProvider>
+          <NavigationContainer linking={linking}>
+            <RootNavigator />
+            <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
+          </NavigationContainer>
+        </SafeAreaProvider>
+      </WebContainer>
     </ErrorBoundary>
   );
 }

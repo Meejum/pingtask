@@ -9,6 +9,7 @@ import { setDisappearingTimer } from '../../services/chatService';
 import { useThemeStore, useAuthStore } from '../../stores';
 import { spacing, typography, layout } from '../../constants';
 import { Avatar, LoadingScreen } from '../../components/common';
+import EncryptionVerification from '../../components/chat/EncryptionVerification';
 import { showAlert } from '../../utils/alert';
 
 type Props = NativeStackScreenProps<ChatStackParamList, 'ChatInfo'>;
@@ -104,6 +105,15 @@ export default function ChatInfoScreen({ route, navigation }: Props) {
               </View>
             ))}
           </View>
+        </>
+      )}
+
+      {/* Encryption Verification (direct chats only) */}
+      {!isGroup && otherMember && (
+        <>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Encryption</Text>
+          <EncryptionVerification otherUid={otherMember.uid} otherName={otherMember.displayName} />
+          <View style={{ height: 24 }} />
         </>
       )}
 

@@ -251,14 +251,69 @@ export async function decryptMessages(
   return result;
 }
 
-// Mark messages as read / reset unread
+// Mark messages as read / reset unread + update delivery statuses
 export async function markConversationRead(
   conversationId: string,
   uid: string,
 ): Promise<void> {
+  // Reset unread counter
   await updateDoc(doc(db, 'conversations', conversationId), {
     [`unreadCount.${uid}`]: 0,
   });
+
+  // Mark unread messages as "read" in delivery status
+  const msgsQuery = query(
+    collection(db, `conversations/${conversationId}/messages`),
+    orderBy('createdAt', 'desc'),
+    limit(30),
+  );
+  const snap = await getDocs(msgsQuery);
+
+  for (const msgDoc of snap.docs) {
+    const data = msgDoc.data();
+    // Only mark other people's messages
+    if (data.senderId === uid) continue;
+
+    const currentStatus = data.deliveryStatus?.[uid]?.status;
+    if (currentStatus !== 'read') {
+      await updateDoc(msgDoc.ref, {
+        [`deliveryStatus.${uid}`]: {
+          status: 'read',
+          deliveredAt: data.deliveryStatus?.[uid]?.deliveredAt || serverTimestamp(),
+          readAt: serverTimestamp(),
+        },
+      });
+    }
+  }
+}
+
+// Mark messages as delivered (called when chat list loads)
+export async function markMessagesDelivered(
+  conversationId: string,
+  uid: string,
+): Promise<void> {
+  const msgsQuery = query(
+    collection(db, `conversations/${conversationId}/messages`),
+    orderBy('createdAt', 'desc'),
+    limit(30),
+  );
+  const snap = await getDocs(msgsQuery);
+
+  for (const msgDoc of snap.docs) {
+    const data = msgDoc.data();
+    if (data.senderId === uid) continue;
+
+    const currentStatus = data.deliveryStatus?.[uid]?.status;
+    if (!currentStatus || currentStatus === 'sent') {
+      await updateDoc(msgDoc.ref, {
+        [`deliveryStatus.${uid}`]: {
+          status: 'delivered',
+          deliveredAt: serverTimestamp(),
+          readAt: null,
+        },
+      });
+    }
+  }
 }
 
 // Send a BBM-style "Ping!" to a conversation
